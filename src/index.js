@@ -57,6 +57,7 @@ const popActionPathHead = (action, key, filterPass = false) => {
 }
 
 const ensureActionPathArray = (action) => {
+  if(action.type[0] == '@') { return action; } // bypass special events
   if(!('path' in action) || action.path == null){ action.path = ''; }
   if(!isArray(action.path)){
     const path_array = action.path.replace(/\[(.*?)\]/, `${SEPARATOR}$1`).split(OR_SEPARATOR);
