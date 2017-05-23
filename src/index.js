@@ -98,9 +98,13 @@ const priminitiveActionsReducer = (state, action) => {
           if(isArray(objValue)) return srcValue;
         });
       case OBJECT.APPEND:
-        return concat(state, action.payload);
+        return concat(state.slice(), action.payload);
       case OBJECT.REMOVE:
         if(isFunction(action.payload)) return state.filter((elem, index) => !action.payload(elem, index));
+        else{
+          state.splice(action.payload, 1)
+          return state.slice();
+        }
         return state;
       default:
         return state;
