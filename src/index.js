@@ -1,7 +1,7 @@
 // idea came from
 // http://blog.scottlogic.com/2016/05/19/redux-reducer-arrays.html
 // http://redux.js.org/docs/recipes/reducers/ReusingReducerLogic.html
-import { assign, concat, flatten, mergeWith, isFunction, isArray, isObject, isString } from 'lodash';
+import { assign, concat, flatten, mergeWith, isFunction, isArray, isObject, isString, isNumber } from 'lodash';
 
 // lib
 const SEPARATOR = '.';
@@ -230,31 +230,76 @@ const createListRewpa = (rewpaname, elementRewpa, ownReducer) => {
 };
 
 // exports
-export const createRewpa = (...args) => {
-  // available args: (rewpaname, schema), (rewpaname, schema, ownReducer), (schema), (schema, ownReducer)
-  let rewpaname = null;
-  let schema = null;
-  let ownReducer = null;
-  if(isString(args[0]) || args[0] == null){
-    rewpaname = args[0]; schema = args[1];
-    if(args.length > 2) ownReducer = args[2];
-  }else{
-    schema = args[0];
-    if(args.length > 1) ownReducer = args[1];
-  }
+export const createRewpa = (arg) => {
+  let rewpaname = ('name' in arg) ? arg.name : null;
+  let schema = ('schema' in arg) ? arg.schema : null;
+  let ownReducer = ('reducer' in arg) ? arg.reducer : null;
 
   if(isFunction(schema)){
     return schema;
   }else if(isArray(schema)){
-    return createListRewpa(rewpaname, createRewpa(null, schema[0], null), ownReducer);
+    return createListRewpa(rewpaname, createRewpa({ schema: schema[0] }), ownReducer);
   }else if(isObject(schema)){
     const reducersMap = {};
     for(const key in schema){
       if(key.length){
-        reducersMap[key] = createRewpa(null, schema[key], null);
+        reducersMap[key] = createRewpa({ schema: schema[key] });
       }
     }
     return createObjectRewpa(rewpaname, reducersMap, ownReducer);
   }
   return createPriminitiveRewpa(rewpaname, schema, ownReducer);
 };
+
+// utils export
+export const joinPath = (arg1, arg2) => {
+  if(isString(arg2) && arg2[0] == '$') return arg2;
+  if(isNumber(arg1)) arg1 = `[${arg1}]`;
+  if(isNumber(arg2)) arg2 = `[${arg2}]`;
+  if(!arg1) return arg2;
+  const isExtraSepartor = arg2[0] === '[' ? '' : '.';
+  return `${arg1}${isExtraSepartor}${arg2}`;
+}
+
+// utils for react-redux
+export const connectWithPath = (connect) => (mapStateToProps, mapDispatchToProps, mergeProps, options = {}) => {
+  let mapStateToProps_ = mapStateToProps;
+  let mapDispatchToProps_ = mapDispatchToProps;
+
+  if(isFunction(mapStateToProps)){
+    mapStateToProps_ = (state, ownProps) => {
+      try{
+        let storeState = eval('state.'+ownProps.path);
+        if(typeof storeState === 'undefined') return mapStateToProps(state, ownProps);
+        storeState = (isObject(storeState) && !isArray(storeState)) ? storeState : (isArray(storeState) ? { __list: storeState } : { __state: storeState });
+        let afterStoreStateJoin = assign(mapStateToProps(state, ownProps), storeState);
+        return afterStoreStateJoin;
+      }catch(Err){
+        return mapStateToProps(state, ownProps);
+      }
+    };
+  }
+
+  if(isFunction(mapDispatchToProps)){
+    mapDispatchToProps_ = (dispatch, ownProps) => {
+      if(!isString(ownProps.path)) return mapDispatchToProps(dispatch, ownProps);
+      const dispatch_ = (action) => {
+        if(action.path){
+          action.path = joinPath(ownProps.path, action.path);
+        }else{
+          if(action.type.indexOf('/') !== -1){
+            const pathType = action.type.split('/');
+            pathType[0] = joinPath(ownProps.path, pathType[0]);
+            action.type = pathType.join('/');
+          }else{
+            action.type = [ownProps.path, action.type].join('/');
+          }
+        }
+        dispatch(action);
+      }
+      return mapDispatchToProps(dispatch_, ownProps);
+    }
+  }
+
+  return connect(mapStateToProps_, mapDispatchToProps_, mergeProps, options);
+}
