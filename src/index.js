@@ -85,7 +85,7 @@ const ensureActionPathArray = (action) => {
 };
 
 // priminitive, object, list embeded actions
-const priminitiveActionsReducer = (state, action) => {
+const priminitiveActionsReducer = (state, action, elementRewpa) => {
   if(!('path' in action)){
     return state;
   }
@@ -98,6 +98,9 @@ const priminitiveActionsReducer = (state, action) => {
           if(isArray(objValue)) return srcValue;
         });
       case OBJECT.APPEND:
+        if(typeof action.payload === 'undefined'){
+          return concat(state.slice(), elementRewpa(undefined, { type: '@@INIT' }));
+        }
         return concat(state.slice(), action.payload);
       case OBJECT.REMOVE:
         if(isFunction(action.payload)) return state.filter((elem, index) => !action.payload(elem, index));
@@ -208,7 +211,7 @@ const createListRewpa = (rewpaname, elementRewpa, ownReducer) => {
   const runActionsForOwnReducer = (state) => (...args) => {
     for(const i in args){
       const action = ensureActionPathArray(args[i]);
-      state = listActionsReducer(state, action);
+      state = listActionsReducer(state, action, elementRewpa);
       state = listMappingReducer(state, action, elementRewpa);
     }
     return state;
@@ -221,7 +224,7 @@ const createListRewpa = (rewpaname, elementRewpa, ownReducer) => {
       const state__ = ownReducer(state, action, runActionsForOwnReducer(state));
       if(state__ !== state){ return state__; }
     }
-    let state_ = listActionsReducer(state, action);
+    let state_ = listActionsReducer(state, action, elementRewpa);
     if(state_ !== state){ return state_; }
     return listMappingReducer(state, action, elementRewpa);
   };
