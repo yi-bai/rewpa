@@ -1,109 +1,150 @@
 // idea came from
 // http://blog.scottlogic.com/2016/05/19/redux-reducer-arrays.html
 // http://redux.js.org/docs/recipes/reducers/ReusingReducerLogic.html
-import { assign, concat, flatten, mergeWith, isFunction, isArray, isObject, isString, isNumber } from 'lodash';
+import _ from 'lodash';
 
 // lib
 const SEPARATOR = '.';
 const OR_SEPARATOR = '|';
 const UNION_SEPARATOR = ',';
-const OBJECT = {
-  SET : '__set',
-  ASSIGN : '__assign',
+const BUILTIN_ACTIONS = {
+  SET : '_SET',
+  ASSIGN : '_ASSIGN',
+  MERGE: '_MERGE',
   //LIST
-  APPEND : '__append', // payload: element
-  INSERT : '__insert', // payload: { elem:, position: }
-  EXTEND : '__extend', // payload: { elem:, position: }
-  FILTER : '__filter', // payload: function || number (negative support) || [slice1, slice2] || object
-  REMOVE : '__remove' // payload: function || number (negative support) || [slice1, slice2] || object
+  APPEND : '_APPEND', // payload: element
+  INSERT : '_INSERT', // payload: { elem:, position: }
+  EXTEND : '_EXTEND', // payload: { elem:, position: }
+  FILTER : '_FILTER', // payload: function || number (negative support) || [slice1, slice2] || object
+  REMOVE : '_REMOVE' // payload: function || number (negative support) || [slice1, slice2] || object
 };
-const OBJECT_ACTION_VALUES = Object.values(OBJECT);
+const BUILTIN_ACTION_VALUES = Object.values(BUILTIN_ACTIONS);
+const FILTER_RE = /\(.*\)/;
 
 // utils
+// determine if current path matches the node
 const isPathMatch = (actionPath) => {
   if(typeof actionPath == 'undefined') return true;
   return actionPath.some((e) => e.length == 0);
 };
 
-const isPathContinue_ = (actionPath, path, rewpaname, filterPass = false) => {
-  if(!actionPath.length){
-    return false;
-  }
-  return actionPath[0] === '*' ||
-    actionPath[0] === '' ||
-    (actionPath[0] === '?' && filterPass) ||
-    actionPath[0] === path ||
-    (actionPath[0][0] === '#' && actionPath[0].slice(1) === rewpaname) ||
-    actionPath[0].split(UNION_SEPARATOR).includes(path);
+const isFilterPass = (state, filter) => {
+  if(!filter) return false;
+  const rawStateFilter = _.pick(state, Object.keys(filter));
+  const stateFilter = {};
+  Object.keys(rawStateFilter).map((key) => {
+    if(!_.isString(rawStateFilter[key]) && !_.isNumber(rawStateFilter[key])) return false;
+    stateFilter[key] = _.isString(rawStateFilter[key]) ? rawStateFilter[key] : rawStateFilter[key].toString();
+  })
+  return _.isEqual(stateFilter, filter);
 };
 
-const isPathContinue = (actionPaths, path, rewpaname, filterPass = false) => {
-  if(!isArray(actionPaths)) return true;
-  return actionPaths.some((actionPath) => isPathContinue_(actionPath, path, rewpaname, filterPass));
+const isPathContinue_ = (actionPath, key, rewpaname, state) => {
+  if(!actionPath.length){ return false; }
+  const otherPass = (actionPath[0].any || actionPath[0].deep || actionPath[0].key.includes(key) || rewpaname && actionPath[0].name === rewpaname);
+  return actionPath[0].filter ? (isFilterPass(state, actionPath[0].filter) && otherPass) : otherPass;
+};
+
+// determine if actions should be dilivered to children
+const isPathContinue = (actionPaths, key, rewpaname, state) => {
+  if(!_.isArray(actionPaths)) return true;
+  console.log(actionPaths, key, rewpaname, state);
+  return actionPaths.some((actionPath) => isPathContinue_(actionPath, key, rewpaname, state));
 }
 
-const popActionPathHead_ = (path, key, rewpaname, filterPass) => {
+const popActionPathHead_ = (path, key, rewpaname, state) => {
   if(!path.length) return [];
-  if(path[0] === '') return concat([path], popActionPathHead_(path.slice(1), key, rewpaname, filterPass));
-  if(path[0] === '*' ||
-    (path[0] === '?' && filterPass) ||
-    path[0] === key ||
-    (path[0][0] === '#' && path[0].slice(1) === rewpaname) ||
-    path[0].split(UNION_SEPARATOR).includes(key)) return [path.slice(1)];
-  else return [];
+  if(path[0].deep) return _.concat([path], popActionPathHead_(path.slice(1), key, rewpaname, state));
+  const otherPass = (path[0].any || path[0].key.includes(key) || rewpaname && path[0].name === rewpaname);
+  return (path[0].filter ? (isFilterPass(state, path[0].filter) && otherPass) : otherPass) ? [path.slice(1)] : [];
 };
 
-const popActionPathHead = (action, key, rewpaname, filterPass = false) => {
+// delete the head of action to pass to children
+const popActionPathHead = (action, key, rewpaname, state) => {
   if(!('path' in action)){ return action; }
-  let newActionPath = action.path.map((path) => popActionPathHead_(path, key, rewpaname, filterPass));
-  newActionPath = flatten(newActionPath);
-  // console.log(newActionPath, key, rewpaname);
-  return assign({}, action, { path: newActionPath });
+  let newActionPath = action.path.map((path) => popActionPathHead_(path, key, rewpaname, state));
+  newActionPath = _.flatten(newActionPath);
+  console.log(newActionPath, state);
+  return _.assign({}, action, { path: newActionPath });
 }
 
-const ensureActionPathArray = (action) => {
+// convert action string to array of path objects
+// supporting type:
+// [0]|*|#Rewpaname|name, optional (key:value,key:value)
+// { key: null, name: null, deep: boolean, any: boolean, filter: {} } 
+const convertActionStringToPathObjects = (action) => {
   if(action.type[0] == '@') { return action; } // bypass special events
+  // split the action type into path and type
   if(action.type.indexOf('/') != -1) {
     const pathAndType = action.type.split('/');
-    action = assign({}, action);
+    action = _.assign({}, action);
     action.path = pathAndType[0]; action.type = pathAndType[1];
   }
   if(!('path' in action) || action.path == null){ action.path = ''; }
-  if(!isArray(action.path)){
+  if(!_.isArray(action.path)){
+    // replace [something] into .something
     const path_array = action.path.replace(/\[(.*?)\]/, `${SEPARATOR}$1`).split(OR_SEPARATOR);
+    // change into paths
     const path_array_array = path_array.map((path) => {
       if(!path.length) return [];
       if(path[0] != '$'){
-        if(path[0] == '[' || path[0] == SEPARATOR) path = '$'+path;
+        if(path[0] == SEPARATOR) path = '$'+path;
         else path = '$.'+path;
       }
-      return path.split(SEPARATOR).slice(1);
+      const paths = path.split(SEPARATOR).slice(1);
+      return paths.map((path) => {
+        let filter = FILTER_RE.exec(path);
+        console.log(filter);
+        if(filter){
+          filter = filter[0].replace('(','').replace(')','');
+          const filterObject = {};
+          filter.split(',').map((keyValue) => {
+            keyValue = keyValue.split(':');
+            filterObject[keyValue[0]] = keyValue[1];
+          });
+          path = path.replace(FILTER_RE, '');
+          filter = filterObject;
+        }
+        pathObject = { filter };
+        pathObject.any = path === '*';
+        pathObject.deep = (path === '' && !filter);
+        pathObject.name = path[0] === '#' ? path.substr(1) : null;
+        if(!pathObject.any && !pathObject.deep && !pathObject.name && path.length) pathObject.key = path.split(UNION_SEPARATOR);
+        else pathObject.key = [];
+        return pathObject;
+      });
     });
-    return assign({}, action, { path: path_array_array });
+    console.log(_.assign({}, action, { path: path_array_array }));
+    return _.assign({}, action, { path: path_array_array });
   }
+
   return action;
 };
 
 // priminitive, object, list embeded actions
-const priminitiveActionsReducer = (state, action, elementRewpa) => {
+const builtinPriminitiveReducer = (state, action, elementRewpa) => {
   if(!('path' in action)){
     return state;
   }
-  if(OBJECT_ACTION_VALUES.includes(action.type) && isPathMatch(action.path)){
+  if(BUILTIN_ACTION_VALUES.includes(action.type) && isPathMatch(action.path)){
     switch(action.type){
-      case OBJECT.SET:
+      case BUILTIN_ACTIONS.SET:
         return action.payload;
-      case OBJECT.ASSIGN:
-        return mergeWith({}, state, action.payload, (objValue, srcValue) => {
-          if(isArray(objValue)) return srcValue;
+      case BUILTIN_ACTIONS.ASSIGN:
+        if(!_.isArray(state)) return _.assign({}, state, action.payload);
+        return action.payload.map((element) => _.assign({}, elementRewpa(undefined, { type: '@@INIT' }), element));
+      case BUILTIN_ACTIONS.MERGE:
+        return _.mergeWith({}, state, action.payload, (objValue, srcValue) => {
+          // for array, replace
+          if(_.isArray(objValue)) return srcValue;
         });
-      case OBJECT.APPEND:
+      case BUILTIN_ACTIONS.APPEND:
         if(typeof action.payload === 'undefined'){
-          return concat(state.slice(), elementRewpa(undefined, { type: '@@INIT' }));
+          return _.concat(state.slice(), elementRewpa(undefined, { type: '@@INIT' }));
         }
-        return concat(state.slice(), action.payload);
-      case OBJECT.REMOVE:
-        if(isFunction(action.payload)) return state.filter((elem, index) => !action.payload(elem, index));
+        return _.concat(state.slice(), action.payload);
+      case BUILTIN_ACTIONS.REMOVE:
+        if(_.isFunction(action.payload)) return state.filter((elem, index) => !action.payload(elem, index));
         else{
           state.splice(action.payload, 1)
           return state.slice();
@@ -116,116 +157,137 @@ const priminitiveActionsReducer = (state, action, elementRewpa) => {
   return state;
 };
 
-const objectActionsReducer = priminitiveActionsReducer;
-const listActionsReducer = priminitiveActionsReducer;
+const builtinObjectReducer = builtinPriminitiveReducer;
+const builtinListReducer = builtinPriminitiveReducer;
 
-// object/list
+// combined reducer
 const objectCombinedReducer = (state, action, reducersMap) => {
-  // // console.log(action.path);
+  // is apply
   const isApply = {};
-  for(const key in reducersMap){
-    if(key.length){
-      isApply[key] = isPathContinue(action.path, key, reducersMap[key].rewpaname);
-    }
+  const keys = Object.keys(reducersMap);
+  for(const i in keys){
+    const key = keys[i];
+    isApply[key] = isPathContinue(action.path, key.toString(), reducersMap[key].rewpaname, state[key]);
   }
-  // // console.log(isApply);
+  console.log(isApply);
+  // apply
   if(Object.values(isApply).some((e) => e)){
     let isChanged = false;
     for(const key in reducersMap){
       if(isApply[key]){
-        const stateKey_ = reducersMap[key](state[key], popActionPathHead(action, key, reducersMap[key].rewpaname));
-        if(stateKey_ !== state[key]){
+        const stateKeyAfterChild = reducersMap[key](state[key], popActionPathHead(action, key.toString(), reducersMap[key].rewpaname, state[key]));
+        if(stateKeyAfterChild !== state[key]){
           isChanged = true;
-          state[key] = stateKey_;
+          state[key] = stateKeyAfterChild;
         }
       }
     }
-    return isChanged ? assign({}, state) : state;
+    return isChanged ? _.assign({}, state) : state;
   }
   return state;
 };
 
+// list reducer
 const listMappingReducer = (state, action, elementRewpa) => {
-  // // console.log(action.path);
+  // iterate over to determine which path to continue
   const isApply = state.map((elem, index) =>
-    isPathContinue(action.path, index.toString(), elementRewpa.rewpaname, action.filter ? action.filter(elem, index) : false) // TODO: support multiple filters
+    isPathContinue(action.path, index.toString(), elementRewpa.rewpaname, state[index])
   );
-  // console.log(isApply);
   if(isApply.some((e) => e)){
     return state.map((elem, index) => isApply[index] ?
-      elementRewpa(state[index], popActionPathHead(action, index.toString(), elementRewpa.rewpaname, action.filter ? action.filter(elem, index) : false)) : elem
+      elementRewpa(
+        state[index],
+        popActionPathHead(action, index.toString(), elementRewpa.rewpaname, state[index])
+      ) : elem
     );
   }
   return state;
 };
 
 // createRewpas
-const createPriminitiveRewpa = (rewpaname, initialState, ownReducer) => {
-  const runActionsForOwnReducer = (state) => (...args) => {
+const createPriminitiveRewpa = (arg) => {
+  let rewpaname    = ('name' in arg)         ? arg.name         : null;
+  let initialState = ('initialState' in arg) ? arg.initialState : null;
+  let ownReducer   = ('ownReducer' in arg)   ? arg.ownReducer   : null;
+
+  const putGenerator = (state) => (...args) => {
     for(const i in args){
-      const action = ensureActionPathArray(args[i]);
-      state = priminitiveActionsReducer(state, action);
+      const action = convertActionStringToPathObjects(args[i]);
+      state = builtinPriminitiveReducer(state, action);
     }
     return state;
   };
 
   const ret = (state = initialState, action) => {
-    action = ensureActionPathArray(action);
-    // console.log(action.path);
-    if(isFunction(ownReducer) && isPathMatch(action.path)){
-      const state__ = ownReducer(state, action, runActionsForOwnReducer(state));
-      if(state__ !== state){ return state_; }
+    action = convertActionStringToPathObjects(action);
+    // own reducer
+    if(_.isFunction(ownReducer) && isPathMatch(action.path)){
+      const stateAfterOwnReducer = ownReducer(state, action, putGenerator(state));
+      if(stateAfterOwnReducer && stateAfterOwnReducer !== state){ return stateAfterOwnReducer; }
     }
-    return priminitiveActionsReducer(state, action);
+    // built-in reducer
+    return builtinPriminitiveReducer(state, action);
   };
   ret.rewpaname = rewpaname;
   return ret;
 };
 
-const createObjectRewpa = (rewpaname, reducersMap, ownReducer) => {
-  const runActionsForOwnReducer = (state) => (...args) => {
+const createObjectRewpa = (arg) => {
+  let rewpaname  = ('name' in arg)       ? arg.name       : null;
+  let rewpaMap   = ('rewpaMap' in arg)   ? arg.rewpaMap   : null;
+  let ownReducer = ('ownReducer' in arg) ? arg.ownReducer : null;
+
+  const putGenerator = (state) => (...args) => {
     for(const i in args){
-      const action = ensureActionPathArray(args[i]);
-      state = objectActionsReducer(state, action);
-      state = objectCombinedReducer(state, action, reducersMap);
+      const action = convertActionStringToPathObjects(args[i]);
+      state = builtinObjectReducer(state, action);
+      state = objectCombinedReducer(state, action, rewpaMap);
     }
     return state;
   };
 
   const ret = (state = {}, action) => {
-    action = ensureActionPathArray(action);
-    // console.log(action.path);
-    if(isFunction(ownReducer) && isPathMatch(action.path)){
-      const state__ = ownReducer(state, action, runActionsForOwnReducer(state));
-      if(state__ !== state){ return state__; }
+    action = convertActionStringToPathObjects(action);
+    // own reducer
+    if(_.isFunction(ownReducer) && isPathMatch(action.path)){
+      const stateAfterOwnReducer = ownReducer(state, action, putGenerator(state));
+      if(stateAfterOwnReducer && stateAfterOwnReducer !== state){ return stateAfterOwnReducer; }
     }
-    let state_ = objectActionsReducer(state, action);
-    if(state_ !== state) { return state_; }
-    return objectCombinedReducer(state, action, reducersMap);
+    // built-in reducer
+    const stateAfterBuiltInReducer = builtinObjectReducer(state, action);
+    if(stateAfterBuiltInReducer && stateAfterBuiltInReducer !== state) { return stateAfterBuiltInReducer; }
+    // "combined" reducer
+    return objectCombinedReducer(state, action, rewpaMap);
   };
   ret.rewpaname = rewpaname;
   return ret;
 };
 
-const createListRewpa = (rewpaname, elementRewpa, ownReducer) => {
-  const runActionsForOwnReducer = (state) => (...args) => {
+const createListRewpa = (arg) => {
+  let rewpaname    = ('name' in arg)         ? arg.name          : null;
+  let elementRewpa = ('elementRewpa' in arg) ? arg.elementRewpa  : null;
+  let ownReducer   = ('ownReducer' in arg)   ? arg.ownReducer    : null;
+
+  const putGenerator = (state) => (...args) => {
     for(const i in args){
-      const action = ensureActionPathArray(args[i]);
-      state = listActionsReducer(state, action, elementRewpa);
+      const action = convertActionStringToPathObjects(args[i]);
+      state = builtinListReducer(state, action, elementRewpa);
       state = listMappingReducer(state, action, elementRewpa);
     }
     return state;
   };
 
   const ret = (state = [], action) => {
-    action = ensureActionPathArray(action);
-    // console.log(action.path);
-    if(isFunction(ownReducer) && isPathMatch(action.path)){
-      const state__ = ownReducer(state, action, runActionsForOwnReducer(state));
-      if(state__ !== state){ return state__; }
+    action = convertActionStringToPathObjects(action);
+    // own reducer
+    if(_.isFunction(ownReducer) && isPathMatch(action.path)){
+      const stateAfterOwnReducer = ownReducer(state, action, putGenerator(state));
+      if(stateAfterOwnReducer !== state){ return stateAfterOwnReducer; }
     }
-    let state_ = listActionsReducer(state, action, elementRewpa);
-    if(state_ !== state){ return state_; }
+    // built-in reducer
+    const stateAfterBuiltInReducer = builtinListReducer(state, action, elementRewpa);
+    if(stateAfterBuiltInReducer && stateAfterBuiltInReducer !== state){ return stateAfterBuiltInReducer; }
+    // iterate over all elements
     return listMappingReducer(state, action, elementRewpa);
   };
   ret.rewpaname = rewpaname;
@@ -234,31 +296,33 @@ const createListRewpa = (rewpaname, elementRewpa, ownReducer) => {
 
 // exports
 export const createRewpa = (arg) => {
-  let rewpaname = ('name' in arg) ? arg.name : null;
-  let schema = ('schema' in arg) ? arg.schema : null;
+  let rewpaname  = ('name' in arg)    ? arg.name    : null;
+  let schema     = ('schema' in arg)  ? arg.schema  : null;
   let ownReducer = ('reducer' in arg) ? arg.reducer : null;
 
-  if(isFunction(schema)){
+  if(_.isFunction(schema)){ // schema is a rewpa
     return schema;
-  }else if(isArray(schema)){
-    return createListRewpa(rewpaname, createRewpa({ schema: schema[0] }), ownReducer);
-  }else if(isObject(schema)){
-    const reducersMap = {};
-    for(const key in schema){
-      if(key.length){
-        reducersMap[key] = createRewpa({ schema: schema[key] });
-      }
+  }else if(_.isArray(schema)){ // schema is an array
+    const elementRewpa = createRewpa({ schema: schema[0] });
+    return createListRewpa({ name: rewpaname, elementRewpa, ownReducer });
+  }else if(_.isObject(schema)){ // schema is an object
+    const rewpaMap = {};
+    const keys = Object.keys(schema);
+    for(const i in keys){
+      const key = keys[i];
+      rewpaMap[key] = createRewpa({ schema: schema[key] });
     }
-    return createObjectRewpa(rewpaname, reducersMap, ownReducer);
+    return createObjectRewpa({ name: rewpaname, rewpaMap, ownReducer });
+  }else{ // schema is other objects
+  return createPriminitiveRewpa({ name: rewpaname, initialState: schema, ownReducer });
   }
-  return createPriminitiveRewpa(rewpaname, schema, ownReducer);
 };
 
 // utils export
 export const joinPath = (arg1, arg2) => {
-  if(isString(arg2) && arg2[0] == '$') return arg2;
-  if(isNumber(arg1)) arg1 = `[${arg1}]`;
-  if(isNumber(arg2)) arg2 = `[${arg2}]`;
+  if(_.isString(arg2) && arg2[0] == '$') return arg2;
+  if(_.isNumber(arg1)) arg1 = `[${arg1}]`;
+  if(_.isNumber(arg2)) arg2 = `[${arg2}]`;
   if(!arg1) return arg2;
   const isExtraSepartor = arg2[0] === '[' ? '' : '.';
   return `${arg1}${isExtraSepartor}${arg2}`;
@@ -269,13 +333,13 @@ export const connectWithPath = (connect) => (mapStateToProps, mapDispatchToProps
   let mapStateToProps_ = mapStateToProps;
   let mapDispatchToProps_ = mapDispatchToProps;
 
-  if(isFunction(mapStateToProps)){
+  if(_.isFunction(mapStateToProps)){
     mapStateToProps_ = (state, ownProps) => {
       try{
         let storeState = eval('state.'+ownProps.path);
         if(typeof storeState === 'undefined') return mapStateToProps(state, ownProps);
-        storeState = (isObject(storeState) && !isArray(storeState)) ? storeState : (isArray(storeState) ? { __list: storeState } : { __state: storeState });
-        let afterStoreStateJoin = assign(mapStateToProps(state, ownProps), storeState);
+        storeState = (_.isObject(storeState) && !_.isArray(storeState)) ? storeState : (_.isArray(storeState) ? { __list: storeState } : { __state: storeState });
+        let afterStoreStateJoin = _.assign(mapStateToProps(state, ownProps), storeState);
         return afterStoreStateJoin;
       }catch(Err){
         return mapStateToProps(state, ownProps);
@@ -283,9 +347,9 @@ export const connectWithPath = (connect) => (mapStateToProps, mapDispatchToProps
     };
   }
 
-  if(isFunction(mapDispatchToProps)){
+  if(_.isFunction(mapDispatchToProps)){
     mapDispatchToProps_ = (dispatch, ownProps) => {
-      if(!isString(ownProps.path)) return mapDispatchToProps(dispatch, ownProps);
+      if(!_.isString(ownProps.path)) return mapDispatchToProps(dispatch, ownProps);
       const dispatch_ = (action) => {
         if(action.path){
           action.path = joinPath(ownProps.path, action.path);
