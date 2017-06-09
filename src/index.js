@@ -456,65 +456,33 @@ const extendRewpa = function(rewpaCreateObject){
 
 // utils export
 export const joinPath = (arg1, arg2) => {
+  if(arg1 == null) return arg2;
+  if(arg2 == null) return arg1;
   if(_.isString(arg2) && arg2[0] == '$') return arg2;
   if(_.isNumber(arg1)) arg1 = `[${arg1}]`;
   if(_.isNumber(arg2)) arg2 = `[${arg2}]`;
-  if(!arg1) return arg2;
   const isExtraSepartor = arg2[0] === '[' ? '' : '.';
   return `${arg1}${isExtraSepartor}${arg2}`;
 }
 
-Function.prototype.clone = function() {
-    var that = this;
-    var temp = function temporary() { return that.apply(this, arguments); };
-    for(var key in this) {
-        if (this.hasOwnProperty(key)) {
-            temp[key] = this[key];
-        }
+export const rewpaMiddleware = ({ dispatch, getState }) => next => action => {
+  if('path' in action){
+    const path1 = action.path;
+    let path2 = null;
+    let type = null;
+    if(action.type.indexOf('/') != -1){
+      const path2type = action.type.split('/');
+      path2 = path2type[0]; type = path2type[1];
+    } else {
+      path2 = null; type = action.type;
     }
-    return temp;
+    const newpath = joinPath(path1, path2);
+    _.assign(action, { type: `${newpath}/${type}` });
+    if(action.type[0] != '$') action.type = '$.'+action.type;
+  }
+  return next(action);
 };
 
-// utils for react-redux
-export const connectWithPath = (connect) => (mapStateToProps, mapDispatchToProps, mergeProps, options = {}) => {
-  let mapStateToProps_ = mapStateToProps;
-  let mapDispatchToProps_ = mapDispatchToProps;
-
-  if(_.isFunction(mapStateToProps)){
-    mapStateToProps_ = (state, ownProps) => {
-      try{
-        let stateThis = eval('state.'+ownProps.path);
-        if(typeof stateThis === 'undefined') return mapStateToProps(state, ownProps);
-        state = _.assign({}, state, { this: stateThis });
-        return mapStateToProps(state, ownProps);
-      }catch(Err){
-        return mapStateToProps(state, ownProps);
-      }
-    };
-  }
-
-  if(_.isFunction(mapDispatchToProps)){
-    mapDispatchToProps_ = (dispatch, ownProps) => {
-      if(!_.isString(ownProps.path)) return mapDispatchToProps(dispatch, ownProps);
-      const dispatchThis = (action) => {
-        if(action.path){
-          action.path = joinPath(ownProps.path, action.path);
-        }else{
-          if(action.type.indexOf('/') !== -1){
-            const pathType = action.type.split('/');
-            pathType[0] = joinPath(ownProps.path, pathType[0]);
-            action.type = pathType.join('/');
-          }else{
-            action.type = [ownProps.path, action.type].join('/');
-          }
-        }
-        console.log(action);
-        dispatch(action);
-      };
-      const dispatch_ =  _.assign(dispatch.clone(), { this: dispatchThis });
-      return mapDispatchToProps(dispatch_, ownProps);
-    }
-  }
-
-  return connect(mapStateToProps_, mapDispatchToProps_, mergeProps, options);
-}
+export const getPath = (state, path) => {
+  return path ? _.get(state, path) : state;
+};
