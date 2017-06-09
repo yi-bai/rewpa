@@ -138,18 +138,6 @@ const builtinPriminitiveReducer = (state, action, elementRewpa) => {
           // for array, replace
           if(_.isArray(objValue)) return srcValue;
         });
-      case BUILTIN_ACTIONS.APPEND:
-        if(typeof action.payload === 'undefined'){
-          return _.concat(state.slice(), elementRewpa(undefined, { type: '@@INIT' }));
-        }
-        return _.concat(state.slice(), action.payload);
-      case BUILTIN_ACTIONS.REMOVE:
-        if(_.isFunction(action.payload)) return state.filter((elem, index) => !action.payload(elem, index));
-        else{
-          state.splice(action.payload, 1)
-          return state.slice();
-        }
-        return state;
       default:
         return state;
     }
@@ -180,7 +168,7 @@ const builtinObjectReducer = (state, action, elementRewpa) => {
         });
       case BUILTIN_ACTIONS.DELETE:
         let delete_keys = [];
-        if(_.isObject(action.payload)){
+        if(_.isObject(action.payload) && !_.isArray(action.payload)){
           _.forEach(Object.keys(state), (state_key) => {
             for(const payload_key in action.payload){
               if(action.payload[payload_key] !== state[state_key][payload_key]) return;
@@ -190,8 +178,9 @@ const builtinObjectReducer = (state, action, elementRewpa) => {
         } else {
           delete_keys = _.isArray(action.payload) ? action.payload : [action.payload];
         }
+        console.log(delete_keys);
         _.forEach(delete_keys, (key) => _.unset(state, key));
-        return assign({}, state);
+        return _.assign({}, state);
       case BUILTIN_ACTIONS.CLEAR:
         return {};
       default:
@@ -224,7 +213,7 @@ const builtinListReducer = (state, action, elementRewpa) => {
         return _.isArray(action.payload) ? state.slice(action.payload[0], action.payload[1]) : state.slice(action.payload);
       case BUILTIN_ACTIONS.DELETE:
         let delete_keys = [];
-        if(_.isObject(action.payload)){
+        if(_.isObject(action.payload) && !_.isArray(action.payload)){
           _.forEach(Object.keys(state), (state_key) => {
             for(const payload_key in action.payload){
               if(action.payload[payload_key] !== state[state_key][payload_key]) return;
