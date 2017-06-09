@@ -105,7 +105,7 @@ const convertActionStringToPathObjects = (action) => {
           path = path.replace(FILTER_RE, '');
           filter = filterObject;
         }
-        pathObject = { filter };
+        const pathObject = { filter };
         pathObject.any = path === '*';
         pathObject.deep = (path === '' && !filter);
         pathObject.name = path[0] === '#' ? path.substr(1) : null;
@@ -187,6 +187,31 @@ const objectCombinedReducer = (state, action, reducersMap) => {
   return state;
 };
 
+const mappingCombinedReducer = (state, action, elementRewpa) => {
+  const isApply = {};
+  const keys = Object.keys(state);
+  for(const i in keys){
+    const key = keys[i];
+    isApply[key] = isPathContinue(action.path, key.toString(), elementRewpa.rewpaname, state[key]);
+  }
+  console.log(isApply);
+  // apply
+  if(Object.values(isApply).some((e) => e)){
+    let isChanged = false;
+    for(const key in state){
+      if(isApply[key]){
+        const stateKeyAfterChild = elementRewpa(state[key], popActionPathHead(action, key.toString(), elementRewpa.rewpaname, state[key]));
+        if(stateKeyAfterChild !== state[key]){
+          isChanged = true;
+          state[key] = stateKeyAfterChild;
+        }
+      }
+    }
+    return isChanged ? _.assign({}, state) : state;
+  }
+  return state;
+};
+
 // list reducer
 const listMappingReducer = (state, action, elementRewpa) => {
   // iterate over to determine which path to continue
@@ -229,6 +254,7 @@ const createPriminitiveRewpa = (arg) => {
     return builtinPriminitiveReducer(state, action);
   };
   ret.rewpaname = rewpaname;
+  ret.type = 'Priminitive';
   return ret;
 };
 
@@ -236,6 +262,13 @@ const createObjectRewpa = (arg) => {
   let rewpaname  = ('name' in arg)       ? arg.name       : null;
   let rewpaMap   = ('rewpaMap' in arg)   ? arg.rewpaMap   : null;
   let ownReducer = ('ownReducer' in arg) ? arg.ownReducer : null;
+  let initialState = ('initialState' in arg) ? arg.initialState || {} : {};
+  let schema = arg.schema;
+
+  const rewpaKeys = Object.keys(rewpaMap);
+  const type = (rewpaKeys.length === 1 && rewpaKeys[0] === '*') ? 'Map' : 'Object';
+  console.log(rewpaMap, type, rewpaMap['*']);
+  if(!rewpaname && type==='Map' && rewpaMap['*'].rewpaname) rewpaname = `Map<${rewpaMap['*'].rewpaname}>`;
 
   const putGenerator = (state) => (...args) => {
     for(const i in args){
@@ -246,7 +279,7 @@ const createObjectRewpa = (arg) => {
     return state;
   };
 
-  const ret = (state = {}, action) => {
+  const ret = (state = initialState, action) => {
     action = convertActionStringToPathObjects(action);
     // own reducer
     if(_.isFunction(ownReducer) && isPathMatch(action.path)){
@@ -257,9 +290,17 @@ const createObjectRewpa = (arg) => {
     const stateAfterBuiltInReducer = builtinObjectReducer(state, action);
     if(stateAfterBuiltInReducer && stateAfterBuiltInReducer !== state) { return stateAfterBuiltInReducer; }
     // "combined" reducer
-    return objectCombinedReducer(state, action, rewpaMap);
+    return (type === 'Object') ? objectCombinedReducer(state, action, rewpaMap) : mappingCombinedReducer(state, action, rewpaMap['*']);
   };
   ret.rewpaname = rewpaname;
+  ret.type = type;
+
+  if(type === 'Object'){
+    ret.schema = schema;
+    ret.ownReducer = ownReducer;
+    ret.initialState = initialState;
+    ret.extend = extendRewpa;
+  }
   return ret;
 };
 
@@ -267,6 +308,9 @@ const createListRewpa = (arg) => {
   let rewpaname    = ('name' in arg)         ? arg.name          : null;
   let elementRewpa = ('elementRewpa' in arg) ? arg.elementRewpa  : null;
   let ownReducer   = ('ownReducer' in arg)   ? arg.ownReducer    : null;
+  let initialState = ('initialState' in arg) ? arg.initialState || [] : [];
+
+  if(!rewpaname && elementRewpa.rewpaname) rewpaname = `List<${elementRewpa.rewpaname}>`;
 
   const putGenerator = (state) => (...args) => {
     for(const i in args){
@@ -277,7 +321,7 @@ const createListRewpa = (arg) => {
     return state;
   };
 
-  const ret = (state = [], action) => {
+  const ret = (state = initialState, action) => {
     action = convertActionStringToPathObjects(action);
     // own reducer
     if(_.isFunction(ownReducer) && isPathMatch(action.path)){
@@ -291,6 +335,7 @@ const createListRewpa = (arg) => {
     return listMappingReducer(state, action, elementRewpa);
   };
   ret.rewpaname = rewpaname;
+  ret.type = 'List';
   return ret;
 };
 
@@ -299,12 +344,13 @@ export const createRewpa = (arg) => {
   let rewpaname  = ('name' in arg)    ? arg.name    : null;
   let schema     = ('schema' in arg)  ? arg.schema  : null;
   let ownReducer = ('reducer' in arg) ? arg.reducer : null;
+  let initialState = ('initialState' in arg) ? arg.initialState : null;
 
   if(_.isFunction(schema)){ // schema is a rewpa
     return schema;
   }else if(_.isArray(schema)){ // schema is an array
     const elementRewpa = createRewpa({ schema: schema[0] });
-    return createListRewpa({ name: rewpaname, elementRewpa, ownReducer });
+    return createListRewpa({ name: rewpaname, elementRewpa, ownReducer, initialState });
   }else if(_.isObject(schema)){ // schema is an object
     const rewpaMap = {};
     const keys = Object.keys(schema);
@@ -312,10 +358,24 @@ export const createRewpa = (arg) => {
       const key = keys[i];
       rewpaMap[key] = createRewpa({ schema: schema[key] });
     }
-    return createObjectRewpa({ name: rewpaname, rewpaMap, ownReducer });
+    return createObjectRewpa({ name: rewpaname, rewpaMap, ownReducer, initialState, schema });
   }else{ // schema is other objects
   return createPriminitiveRewpa({ name: rewpaname, initialState: schema, ownReducer });
   }
+};
+
+const extendRewpa = function(rewpaCreateObject){
+  const rewpa = createRewpa(rewpaCreateObject);
+  let rewpaname = rewpa.rewpaname || this.rewpaname;
+  let schema = _.assign({}, this.schema, rewpa.schema);
+  let ownReducer = (state, action, put) => {
+    const oldState = state;
+    state = _.isFunction(rewpa.ownReducer) ? rewpa.ownReducer(state, action, put) : state;
+    if(state !== oldState) return state;
+    return _.isFunction(this.ownReducer) ? this.ownReducer(state, action, put) : state;
+  };
+  let initialState = _.assign({}, this.initialState, rewpaCreateObject.initialState);
+  return createRewpa({ name: rewpaname, schema, reducer: ownReducer, initialState });
 };
 
 // utils export
@@ -328,6 +388,17 @@ export const joinPath = (arg1, arg2) => {
   return `${arg1}${isExtraSepartor}${arg2}`;
 }
 
+Function.prototype.clone = function() {
+    var that = this;
+    var temp = function temporary() { return that.apply(this, arguments); };
+    for(var key in this) {
+        if (this.hasOwnProperty(key)) {
+            temp[key] = this[key];
+        }
+    }
+    return temp;
+};
+
 // utils for react-redux
 export const connectWithPath = (connect) => (mapStateToProps, mapDispatchToProps, mergeProps, options = {}) => {
   let mapStateToProps_ = mapStateToProps;
@@ -336,11 +407,10 @@ export const connectWithPath = (connect) => (mapStateToProps, mapDispatchToProps
   if(_.isFunction(mapStateToProps)){
     mapStateToProps_ = (state, ownProps) => {
       try{
-        let storeState = eval('state.'+ownProps.path);
-        if(typeof storeState === 'undefined') return mapStateToProps(state, ownProps);
-        storeState = (_.isObject(storeState) && !_.isArray(storeState)) ? storeState : (_.isArray(storeState) ? { __list: storeState } : { __state: storeState });
-        let afterStoreStateJoin = _.assign(mapStateToProps(state, ownProps), storeState);
-        return afterStoreStateJoin;
+        let stateThis = eval('state.'+ownProps.path);
+        if(typeof stateThis === 'undefined') return mapStateToProps(state, ownProps);
+        state = _.assign({}, state, { this: stateThis });
+        return mapStateToProps(state, ownProps);
       }catch(Err){
         return mapStateToProps(state, ownProps);
       }
@@ -350,7 +420,7 @@ export const connectWithPath = (connect) => (mapStateToProps, mapDispatchToProps
   if(_.isFunction(mapDispatchToProps)){
     mapDispatchToProps_ = (dispatch, ownProps) => {
       if(!_.isString(ownProps.path)) return mapDispatchToProps(dispatch, ownProps);
-      const dispatch_ = (action) => {
+      const dispatchThis = (action) => {
         if(action.path){
           action.path = joinPath(ownProps.path, action.path);
         }else{
@@ -362,8 +432,10 @@ export const connectWithPath = (connect) => (mapStateToProps, mapDispatchToProps
             action.type = [ownProps.path, action.type].join('/');
           }
         }
+        console.log(action);
         dispatch(action);
-      }
+      };
+      const dispatch_ =  _.assign(dispatch.clone(), { this: dispatchThis });
       return mapDispatchToProps(dispatch_, ownProps);
     }
   }
