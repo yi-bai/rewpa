@@ -9,14 +9,14 @@ const OR_SEPARATOR = '|';
 const UNION_SEPARATOR = ',';
 const BUILTIN_ACTIONS = {
   SET : '_SET',
+  INSERT: '_INSERT',
+  PUSH: '_PUSH',
+  CONCAT: '_CONCAT',
   ASSIGN : '_ASSIGN',
   MERGE: '_MERGE',
-  //LIST
-  APPEND : '_APPEND', // payload: element
-  INSERT : '_INSERT', // payload: { elem:, position: }
-  EXTEND : '_EXTEND', // payload: { elem:, position: }
-  FILTER : '_FILTER', // payload: function || number (negative support) || [slice1, slice2] || object
-  REMOVE : '_REMOVE' // payload: function || number (negative support) || [slice1, slice2] || object
+  SLICE: '_SLICE',
+  DELETE: '_DELETE',
+  CLEAR: '_CLEAR'
 };
 const BUILTIN_ACTION_VALUES = Object.values(BUILTIN_ACTIONS);
 const FILTER_RE = /\(.*\)/;
@@ -138,18 +138,6 @@ const builtinPriminitiveReducer = (state, action, elementRewpa) => {
           // for array, replace
           if(_.isArray(objValue)) return srcValue;
         });
-      case BUILTIN_ACTIONS.APPEND:
-        if(typeof action.payload === 'undefined'){
-          return _.concat(state.slice(), elementRewpa(undefined, { type: '@@INIT' }));
-        }
-        return _.concat(state.slice(), action.payload);
-      case BUILTIN_ACTIONS.REMOVE:
-        if(_.isFunction(action.payload)) return state.filter((elem, index) => !action.payload(elem, index));
-        else{
-          state.splice(action.payload, 1)
-          return state.slice();
-        }
-        return state;
       default:
         return state;
     }
@@ -157,8 +145,95 @@ const builtinPriminitiveReducer = (state, action, elementRewpa) => {
   return state;
 };
 
-const builtinObjectReducer = builtinPriminitiveReducer;
-const builtinListReducer = builtinPriminitiveReducer;
+const builtinObjectReducer = (state, action, elementRewpa) => {
+  if(!('path') in action){
+    return state;
+  }
+  if(BUILTIN_ACTION_VALUES.includes(action.type) && isPathMatch(action.path)){
+    switch(action.type){
+      case BUILTIN_ACTIONS.SET:
+        if(('key' in action.payload) && !('value' in action.payload)){
+          return _.assign({}, state, { [action.payload.key]: elementRewpa(undefined, { type: '@@INIT' }) });
+        } else if(('key' in action.payload) && ('value' in action.payload)){
+          return _.assign({}, state, { [action.payload.key]: action.payload.value });
+        } else {
+          return action.payload;
+        }
+      case BUILTIN_ACTIONS.ASSIGN:
+        return _.assign({}, state, action.payload);
+      case BUILTIN_ACTIONS.MERGE:
+        return _.mergeWith({}, state, action.payload, (objValue, srcValue) => {
+          // for array, replace
+          if(_.isArray(objValue)) return srcValue;
+        });
+      case BUILTIN_ACTIONS.DELETE:
+        let delete_keys = [];
+        if(_.isObject(action.payload) && !_.isArray(action.payload)){
+          _.forEach(Object.keys(state), (state_key) => {
+            for(const payload_key in action.payload){
+              if(action.payload[payload_key] !== state[state_key][payload_key]) return;
+            }
+            delete_keys.push(state_key);
+          });
+        } else {
+          delete_keys = _.isArray(action.payload) ? action.payload : [action.payload];
+        }
+        console.log(delete_keys);
+        _.forEach(delete_keys, (key) => _.unset(state, key));
+        return _.assign({}, state);
+      case BUILTIN_ACTIONS.CLEAR:
+        return {};
+      default:
+        return state;
+    }
+  }
+};
+
+const builtinListReducer = (state, action, elementRewpa) => {
+  if(!('path') in action){
+    return state;
+  }
+  console.log('built-in list reducer called');
+  if(BUILTIN_ACTION_VALUES.includes(action.type) && isPathMatch(action.path)){
+    switch(action.type){
+      case BUILTIN_ACTIONS.INSERT:
+        if(!action.payload){
+          state.push(elementRewpa(undefined, { type: '@@INIT' }));
+          return state.map((e) => e);
+        } else if(('index' in action.payload) && ('value' in action.payload)){
+          state.splice((action.payload.index > 0) ? action.payload.index : state.length - action.payload.index, 0, action.payload.value);
+          return state.map((e) => e);
+        } else {
+          state.push(action.payload);
+          return state.map((e) => e);
+        }
+      case BUILTIN_ACTIONS.CONCAT:
+        return _.concat(state, action.payload);
+      case BUILTIN_ACTIONS.SLICE:
+        return _.isArray(action.payload) ? state.slice(action.payload[0], action.payload[1]) : state.slice(action.payload);
+      case BUILTIN_ACTIONS.DELETE:
+        let delete_keys = [];
+        if(_.isObject(action.payload) && !_.isArray(action.payload)){
+          // TODO: fix this
+          _.forEach(Object.keys(state), (state_key) => {
+            for(const payload_key in action.payload){
+              if(action.payload[payload_key] !== state[state_key][payload_key]) return;
+            }
+            delete_keys.push(state_key);
+          });
+        } else {
+          delete_keys = _.isArray(action.payload) ? action.payload : [action.payload];
+        }
+        console.log(state);
+        _.forEach(delete_keys, (key) => state.splice(key, 1));
+        return state.map((e) => e);
+      case BUILTIN_ACTIONS.CLEAR:
+        return [];
+      default:
+        return state;
+    }
+  }
+};
 
 // combined reducer
 const objectCombinedReducer = (state, action, reducersMap) => {
@@ -330,6 +405,7 @@ const createListRewpa = (arg) => {
     }
     // built-in reducer
     const stateAfterBuiltInReducer = builtinListReducer(state, action, elementRewpa);
+    console.log(stateAfterBuiltInReducer);
     if(stateAfterBuiltInReducer && stateAfterBuiltInReducer !== state){ return stateAfterBuiltInReducer; }
     // iterate over all elements
     return listMappingReducer(state, action, elementRewpa);
