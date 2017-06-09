@@ -214,6 +214,7 @@ const builtinListReducer = (state, action, elementRewpa) => {
       case BUILTIN_ACTIONS.DELETE:
         let delete_keys = [];
         if(_.isObject(action.payload) && !_.isArray(action.payload)){
+          // TODO: fix this
           _.forEach(Object.keys(state), (state_key) => {
             for(const payload_key in action.payload){
               if(action.payload[payload_key] !== state[state_key][payload_key]) return;
