@@ -197,15 +197,16 @@ const builtinListReducer = (state, action, elementRewpa) => {
   if(BUILTIN_ACTION_VALUES.includes(action.type) && isPathMatch(action.path)){
     switch(action.type){
       case BUILTIN_ACTIONS.INSERT:
+        state = state.map((e) => e);
         if(!action.payload){
           state.push(elementRewpa(undefined, { type: '@@INIT' }));
-          return state.map((e) => e);
+          return state;
         } else if(('index' in action.payload) && ('value' in action.payload)){
           state.splice((action.payload.index > 0) ? action.payload.index : state.length - action.payload.index, 0, action.payload.value);
-          return state.map((e) => e);
+          return state;
         } else {
           state.push(action.payload);
-          return state.map((e) => e);
+          return state;
         }
       case BUILTIN_ACTIONS.CONCAT:
         return _.concat(state, action.payload);
