@@ -574,7 +574,7 @@ export const rewpaMiddleware = (rewpa) => ({ dispatch, getState }) => next => ac
   if(prevState == nextState){
     console.log('inside try effects');
     console.log(JSON.parse(JSON.stringify(getState())));
-    const effectPaths = rewpa(JSON.parse(JSON.stringify(getState())), _.assign({}, action, { __getEffectResultList: true }));
+    const effectPaths = rewpa(getState(), _.assign({}, action, { __getEffectResultList: true }));
     console.log(effectPaths);
     if(!effectPaths) return;
     for(const effectResult in effectPaths.list){
