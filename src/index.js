@@ -577,8 +577,13 @@ export const rewpaMiddleware = (rewpa) => ({ dispatch, getState }) => next => ac
     const effectPaths = rewpa(getState(), _.assign({}, action, { __getEffectResultList: true }));
     console.log(effectPaths);
     if(!effectPaths) return;
+    if(effectPaths.list.length === 1){
+      const functionAndAction = effectPaths.list[0];
+      return functionAndAction.function(functionAndAction.action, dispatch, getState);
+    }
     for(const effectResult in effectPaths.list){
       const functionAndAction = effectPaths.list[effectResult];
+      // TODO: didn't come up with a better idea how to return this
       functionAndAction.function(functionAndAction.action, dispatch, getState);
     }
   }
