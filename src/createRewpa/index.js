@@ -1,10 +1,13 @@
 import _ from 'lodash';
+import createListRewpa from './createListRewpa';
+import createObjectRewpa from './createObjectRewpa';
+import createPriminitiveRewpa from './createPriminitiveRewpa';
 
 const generateReducerFromObject = (ownReducerObj) => {
   return (state, action, put) => {
     for(const key in ownReducerObj){
-      console.log('generateReducerFromObject', key, action.type);
-      if(key === action.type){
+      console.log('generateReducerFromObject', key, action.__type);
+      if(key === action.__type){
         console.log('matches', ownReducerObj[key], state, action, put);
         console.log(ownReducerObj[key](state, action, put));
         return ownReducerObj[key](state, action, put);
@@ -14,17 +17,20 @@ const generateReducerFromObject = (ownReducerObj) => {
   }
 };
 
-export default (arg) => {
+const createRewpa = (arg) => {
   const defaultArg = {
     name: null,
     schema: null,
     ownReducer: null,
-    initialState: null,
     effects: null
   };
+  if(arg.reducer) { arg.ownReducer = arg.reducer; delete arg.reducer; }
+  console.log(arg);
   arg = _.assign(defaultArg, arg);
   let { name, schema, ownReducer, initialState, effects } = arg;
+  console.log(ownReducer);
   if(_.isObject(ownReducer)) ownReducer = generateReducerFromObject(ownReducer);
+  console.log(ownReducer);
 
   // case rewpa: return directly, array: createListRewpa, object: createObjectRewpa, other: createPriminitiveRewpa
   if(_.isFunction(schema)){ // schema is a rewpa
@@ -39,8 +45,11 @@ export default (arg) => {
       const key = keys[i];
       rewpaMap[key] = createRewpa({ schema: schema[key] });
     }
+    console.log(rewpaMap);
     return createObjectRewpa({ name, rewpaMap, ownReducer, initialState, schema, effects });
   }else{ // schema is other objects
     return createPriminitiveRewpa({ name, initialState: initialState || schema, ownReducer, effects });
   }
 };
+
+export default createRewpa;
