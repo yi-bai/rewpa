@@ -7,7 +7,7 @@ export default (arg) => {
   const defaultArg = { name: null, schema: null, rewpaMap: null, ownReducer: null, initialState: {}, effects: null };
   Object.keys(arg).forEach(key => arg[key] === undefined && delete arg[key]); // delete undefined keys
   arg = _.assign(defaultArg, arg);
-  console.log(arg);
+  // console.log(arg);
   let { name, schema, rewpaMap, ownReducer, initialState, effects } = arg;
 
   const rewpaKeys = Object.keys(rewpaMap);
@@ -25,14 +25,14 @@ export default (arg) => {
 
   const ret = (state = initialState, action) => {
     // effects
-    if(action.path && !action.path.length && action.type === '@@rewpa/GET_EFFECT_FUNC'){
+    if(action.__path && !action.__path.length && action.type === '@@rewpa/GET_EFFECT_FUNC'){
       if(effects && action.__type in effects){
         return effects[action.__type];
       }
     }
     // own reducer
-    console.log(arg);
-    if(action.path && !action.path.length && _.isFunction(ownReducer)){
+    // console.log(arg);
+    if(action.__path && !action.__path.length && _.isFunction(ownReducer)){
       const stateAfterOwnReducer = ownReducer(state, action, putGenerator(state));
       if(stateAfterOwnReducer && stateAfterOwnReducer !== state){ return stateAfterOwnReducer; }
     }

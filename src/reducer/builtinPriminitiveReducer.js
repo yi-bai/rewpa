@@ -1,10 +1,10 @@
 import { BUILTIN_ACTION_VALUES, BUILTIN_ACTIONS } from '../constants';
 
 export default (state, action, initialState) => {
-  if(!action.__path){
+  if(!('path' in action)){
     return state;
   }
-  if(!action.path.length && BUILTIN_ACTION_VALUES.includes(action.__type)){
+  if(!action.__path.length && BUILTIN_ACTION_VALUES.includes(action.__type)){
     switch(action.__type){
       case BUILTIN_ACTIONS.SET:
         return action.payload;

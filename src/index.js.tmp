@@ -48,7 +48,7 @@ const isPathContinue_ = (actionPath, key, rewpaname, state) => {
 // determine if actions should be dilivered to children
 const isPathContinue = (actionPaths, key, rewpaname, state) => {
   if(!_.isArray(actionPaths)) return true;
-  console.log(actionPaths, key, rewpaname, state);
+  // console.log(actionPaths, key, rewpaname, state);
   return actionPaths.some((actionPath) => isPathContinue_(actionPath, key, rewpaname, state));
 }
 
@@ -64,7 +64,7 @@ const popActionPathHead = (action, key, rewpaname, state) => {
   if(!('path' in action)){ return action; }
   let newActionPath = action.path.map((path) => popActionPathHead_(path, key, rewpaname, state));
   newActionPath = _.flatten(newActionPath);
-  console.log(newActionPath, state);
+  // console.log(newActionPath, state);
   return _.assign({}, action, { path: newActionPath });
 }
 
@@ -94,7 +94,7 @@ const convertActionStringToPathObjects = (action) => {
       const paths = path.split(SEPARATOR).slice(1);
       return paths.map((path) => {
         let filter = FILTER_RE.exec(path);
-        console.log(filter);
+        // console.log(filter);
         if(filter){
           filter = filter[0].replace('(','').replace(')','');
           const filterObject = {};
@@ -114,7 +114,7 @@ const convertActionStringToPathObjects = (action) => {
         return pathObject;
       });
     });
-    console.log(_.assign({}, action, { path: path_array_array }));
+    // console.log(_.assign({}, action, { path: path_array_array }));
     return _.assign({}, action, { path: path_array_array });
   }
 
@@ -178,7 +178,7 @@ const builtinObjectReducer = (state, action, elementRewpa) => {
         } else {
           delete_keys = _.isArray(action.payload) ? action.payload : [action.payload];
         }
-        console.log(delete_keys);
+        // console.log(delete_keys);
         _.forEach(delete_keys, (key) => _.unset(state, key));
         return _.assign({}, state);
       case BUILTIN_ACTIONS.CLEAR:
@@ -193,7 +193,7 @@ const builtinListReducer = (state, action, elementRewpa) => {
   if(!('path') in action){
     return state;
   }
-  console.log('built-in list reducer called');
+  // console.log('built-in list reducer called');
   if(BUILTIN_ACTION_VALUES.includes(action.type) && isPathMatch(action.path)){
     switch(action.type){
       case BUILTIN_ACTIONS.INSERT:
@@ -225,7 +225,7 @@ const builtinListReducer = (state, action, elementRewpa) => {
         } else {
           delete_keys = _.isArray(action.payload) ? action.payload : [action.payload];
         }
-        console.log(state);
+        // console.log(state);
         _.forEach(delete_keys, (key) => state.splice(key, 1));
         return state.map((e) => e);
       case BUILTIN_ACTIONS.CLEAR:
@@ -280,7 +280,7 @@ const objectCombinedReducer = (state, action, reducersMap) => {
     const key = keys[i];
     isApply[key] = isPathContinue(action.path, key.toString(), reducersMap[key].rewpaname, state[key]);
   }
-  console.log(isApply);
+  // console.log(isApply);
   // apply
   if(Object.values(isApply).some((e) => e)){
     let isChanged = false;
@@ -306,7 +306,7 @@ const mappingCombinedReducer = (state, action, elementRewpa) => {
     const key = keys[i];
     isApply[key] = isPathContinue(action.path, key.toString(), elementRewpa.rewpaname, state[key]);
   }
-  console.log(isApply);
+  // console.log(isApply);
   // apply
   if(Object.values(isApply).some((e) => e)){
     let isChanged = false;
@@ -365,7 +365,7 @@ const createPriminitiveRewpa = (arg) => {
     action = convertActionStringToPathObjects(action);
     // effects
     if(isPathMatch(action.path) && action.__getEffectResultList){
-      console.log('effects detect -------');
+      // console.log('effects detect -------');
       if(effects && action.type in effects){ return createEffectResultList(effects[action.type], action); }
     }
     // own reducer
@@ -387,13 +387,13 @@ const createObjectRewpa = (arg) => {
   let ownReducer = ('ownReducer' in arg) ? arg.ownReducer : null;
   let effects      = ('effects' in arg)      ? arg.effects      : null;
   let initialState = ('initialState' in arg) ? arg.initialState || {} : {};
-  console.log(arg);
+  // console.log(arg);
   let schema = arg.schema;
-  console.log('createobjectrewpaaaaaaaaaaaaaa', effects, rewpaname);
+  // console.log('createobjectrewpaaaaaaaaaaaaaa', effects, rewpaname);
 
   const rewpaKeys = Object.keys(rewpaMap);
   const type = (rewpaKeys.length === 1 && rewpaKeys[0] === '*') ? 'Map' : 'Object';
-  console.log(rewpaMap, type, rewpaMap['*']);
+  // console.log(rewpaMap, type, rewpaMap['*']);
   if(!rewpaname && type==='Map' && rewpaMap['*'].rewpaname) rewpaname = `Map<${rewpaMap['*'].rewpaname}>`;
 
   const putGenerator = (state) => (...args) => {
@@ -409,7 +409,7 @@ const createObjectRewpa = (arg) => {
     action = convertActionStringToPathObjects(action);
     // effects
     if(isPathMatch(action.path) && action.__getEffectResultList){
-      console.log('effects detect -------', effects);
+      // console.log('effects detect -------', effects);
       if(effects && action.type in effects){ return createEffectResultList(effects[action.type], action); }
     }
     // own reducer
@@ -460,7 +460,7 @@ const createListRewpa = (arg) => {
     action = convertActionStringToPathObjects(action);
     // effects
     if(isPathMatch(action.path) && action.__getEffectResultList){
-      console.log('effects detect -------');
+      // console.log('effects detect -------');
       if(effects && action.type in effects){ return createEffectResultList(effects[action.type], action); }
     }
     // own reducer
@@ -470,7 +470,7 @@ const createListRewpa = (arg) => {
     }
     // built-in reducer
     const stateAfterBuiltInReducer = builtinListReducer(state, action, elementRewpa);
-    console.log(stateAfterBuiltInReducer);
+    // console.log(stateAfterBuiltInReducer);
     if(stateAfterBuiltInReducer && stateAfterBuiltInReducer !== state){ return stateAfterBuiltInReducer; }
     // iterate over all elements
     state = listMappingReducer(state, action, elementRewpa);
@@ -485,10 +485,10 @@ const createListRewpa = (arg) => {
 export const generateReducerFromObject = (ownReducerObj) => {
   return (state, action, put) => {
     for(const key in ownReducerObj){
-      console.log('generateReducerFromObject', key, action.type);
+      // console.log('generateReducerFromObject', key, action.type);
       if(key === action.type){
-        console.log('matches', ownReducerObj[key], state, action, put);
-        console.log(ownReducerObj[key](state, action, put));
+        // console.log('matches', ownReducerObj[key], state, action, put);
+        // console.log(ownReducerObj[key](state, action, put));
         return ownReducerObj[key](state, action, put);
       }
     }
@@ -572,10 +572,10 @@ export const rewpaMiddleware = (rewpa) => ({ dispatch, getState }) => next => ac
 
   // effects
   if(prevState == nextState){
-    console.log('inside try effects');
-    console.log(JSON.parse(JSON.stringify(getState())));
+    // console.log('inside try effects');
+    // console.log(JSON.parse(JSON.stringify(getState())));
     const effectPaths = rewpa(getState(), _.assign({}, action, { __getEffectResultList: true }));
-    console.log(effectPaths);
+    // console.log(effectPaths);
     if(!effectPaths) return;
     if(effectPaths.list.length === 1){
       const functionAndAction = effectPaths.list[0];

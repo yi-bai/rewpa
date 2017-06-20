@@ -1,11 +1,10 @@
 import { BUILTIN_ACTION_VALUES, BUILTIN_ACTIONS } from '../constants';
 
 export default (state, action, elementRewpa) => {
-  if(!action.__path){
+  if(!('path' in action)){
     return state;
   }
-  if(!action.path.length && BUILTIN_ACTION_VALUES.includes(action.__type)){
-    console.log('inside');
+  if(!action.__path.length && BUILTIN_ACTION_VALUES.includes(action.__type)){
     switch(action.__type){
       case BUILTIN_ACTIONS.INSERT:
         state = state.map((e) => e);
@@ -36,7 +35,7 @@ export default (state, action, elementRewpa) => {
         } else {
           delete_keys = _.isArray(action.payload) ? action.payload : [action.payload];
         }
-        console.log(state);
+        // console.log(state);
         _.forEach(delete_keys, (key) => state.splice(key, 1));
         return state.map((e) => e);
       case BUILTIN_ACTIONS.CLEAR:
@@ -45,4 +44,5 @@ export default (state, action, elementRewpa) => {
         return state;
     }
   }
+  return state;
 };

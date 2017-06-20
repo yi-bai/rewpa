@@ -1,10 +1,10 @@
 import { BUILTIN_ACTION_VALUES, BUILTIN_ACTIONS } from '../constants';
 
 export default (state, action, elementRewpa) => {
-  if(!action.__path){
+  if(!('path' in action)){
     return state;
   }
-  if(!action.path.length && BUILTIN_ACTION_VALUES.includes(action.__type)){
+  if(!action.__path.length && BUILTIN_ACTION_VALUES.includes(action.__type)){
     switch(action.__type){
       case BUILTIN_ACTIONS.SET:
         if(('key' in action.payload) && !('value' in action.payload)){
@@ -35,7 +35,7 @@ export default (state, action, elementRewpa) => {
         } else {
           delete_keys = _.isArray(action.payload) ? action.payload : [action.payload];
         }
-        console.log(delete_keys);
+        // console.log(delete_keys);
         _.forEach(delete_keys, (key) => _.unset(state, key));
         return _.assign({}, state);
       case BUILTIN_ACTIONS.CLEAR:
@@ -44,4 +44,5 @@ export default (state, action, elementRewpa) => {
         return state;
     }
   }
+  return state;
 };

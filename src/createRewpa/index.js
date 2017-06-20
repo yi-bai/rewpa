@@ -6,10 +6,10 @@ import createPriminitiveRewpa from './createPriminitiveRewpa';
 const generateReducerFromObject = (ownReducerObj) => {
   return (state, action, put) => {
     for(const key in ownReducerObj){
-      console.log('generateReducerFromObject', key, action.__type);
+      // console.log('generateReducerFromObject', key, action.__type);
       if(key === action.__type){
-        console.log('matches', ownReducerObj[key], state, action, put);
-        console.log(ownReducerObj[key](state, action, put));
+        // console.log('matches', ownReducerObj[key], state, action, put);
+        // console.log(ownReducerObj[key](state, action, put));
         return ownReducerObj[key](state, action, put);
       }
     }
@@ -25,12 +25,12 @@ const createRewpa = (arg) => {
     effects: null
   };
   if(arg.reducer) { arg.ownReducer = arg.reducer; delete arg.reducer; }
-  console.log(arg);
+  // console.log(arg);
   arg = _.assign(defaultArg, arg);
   let { name, schema, ownReducer, initialState, effects } = arg;
-  console.log(ownReducer);
+  // console.log(ownReducer);
   if(_.isObject(ownReducer)) ownReducer = generateReducerFromObject(ownReducer);
-  console.log(ownReducer);
+  // console.log(ownReducer);
 
   // case rewpa: return directly, array: createListRewpa, object: createObjectRewpa, other: createPriminitiveRewpa
   if(_.isFunction(schema)){ // schema is a rewpa
@@ -45,7 +45,7 @@ const createRewpa = (arg) => {
       const key = keys[i];
       rewpaMap[key] = createRewpa({ schema: schema[key] });
     }
-    console.log(rewpaMap);
+    // console.log(rewpaMap);
     return createObjectRewpa({ name, rewpaMap, ownReducer, initialState, schema, effects });
   }else{ // schema is other objects
     return createPriminitiveRewpa({ name, initialState: initialState || schema, ownReducer, effects });

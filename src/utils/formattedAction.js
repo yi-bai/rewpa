@@ -17,8 +17,7 @@ export default (action) => {
     const splittedActionType = action.type.split('/');
     pathInType = splittedActionType[0];
     typeInType = splittedActionType[1];
-  }
-  if(!action.path && !pathInType) return action;
+  }else if(!action.path) return action;
 
   const original = {
     path: action.path ? pathArray(action.path) : [],
@@ -27,11 +26,11 @@ export default (action) => {
   };
 
   const toAssign = {
-    path: original.path.concat(original.pathInType),
+    __path: original.path.concat(original.pathInType).filter((path) => path !== ''),
     __type: original.typeInType
   };
-  toAssign.__path = pathString(toAssign.path);
-  toAssign.type = [toAssign.__path, original.typeInType].join('/');
+  toAssign.path = pathString(toAssign.__path);
+  toAssign.type = [toAssign.path, original.typeInType].join('/');
 
   return _.assign(action, toAssign);
 };

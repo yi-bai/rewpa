@@ -21,13 +21,13 @@ export default (arg) => {
 
   const ret = (state = initialState, action) => {
     // effects
-    if(action.path && !action.path.length && action.type === '@@rewpa/GET_EFFECT_FUNC'){
+    if(action.__path && !action.__path.length && action.type === '@@rewpa/GET_EFFECT_FUNC'){
       if(effects && action.__type in effects){
         return effects[action.__type];
       }
     }
     // own reducer
-    if(action.path && !action.path.length && _.isFunction(ownReducer)){
+    if(action.__path && !action.__path.length && _.isFunction(ownReducer)){
       const stateAfterOwnReducer = ownReducer(state, action, putGenerator(state));
       if(stateAfterOwnReducer !== state){ return stateAfterOwnReducer; }
     }

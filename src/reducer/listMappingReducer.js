@@ -1,12 +1,11 @@
 export default (state, action, elementRewpa) => {
   // iterate over to determine which path to continue
-  const isApply = state.map((elem, index) => !action.path || action.path[0] === index.toString());
-  console.log(state, action, isApply);
+  const isApply = state.map((elem, index) => !action.__path || action.__path[0] === index.toString());
   if(isApply.some((e) => e)){
     const stateAfterElementRewpa = state.map((elem, index) => isApply[index] ?
       elementRewpa(
         state[index],
-        _.assign({}, action, { path: action.path ? action.path.slice(1) : action.path })
+        _.assign({}, action, { __path: action.__path ? action.__path.slice(1) : action.__path })
       ) : elem
     );
     // only return when some have changed
