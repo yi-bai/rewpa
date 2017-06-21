@@ -3,6 +3,12 @@ import builtinObjectReducer from '../reducer/builtinObjectReducer';
 import objectCombinedReducer from '../reducer/objectCombinedReducer';
 import mappingCombinedReducer from '../reducer/mappingCombinedReducer';
 
+import OnChangeResultPath from '../utils/OnChangeResultPath';
+
+const pathString = (arrayPath) => {
+  return _.isString(arrayPath) ? arrayPath : (arrayPath ? arrayPath.join('.') : '');
+};
+
 export default (arg) => {
   const defaultArg = { name: null, schema: null, rewpaMap: null, ownReducer: null, initialState: {}, effects: null };
   Object.keys(arg).forEach(key => arg[key] === undefined && delete arg[key]); // delete undefined keys
@@ -25,10 +31,24 @@ export default (arg) => {
 
   const ret = (state = initialState, action) => {
     // effects
-    if(action.__path && !action.__path.length && action.type === '@@rewpa/GET_EFFECT_FUNC'){
-      if(effects && action.__type in effects){
+    if(action.type === '@@rewpa/GET_EFFECT_FUNC'){
+      if((action.__path && !action.__path.length) && (effects && action.__type in effects)){
         return effects[action.__type];
       }
+      state = (type === 'Object') ?
+      objectCombinedReducer(state, action, rewpaMap) :
+      mappingCombinedReducer(state, action, rewpaMap['*']);
+      const filteredKeys = Object.keys(state).filter((key) => _.isFunction(state[key]));
+      return filteredKeys.length ? state[filteredKeys[0]] : null;
+    }
+    // on change hook
+    if(action.type === '@@rewpa/GET_ON_CHANGE_PATH'){
+      const thisMatch = (effects && '_ON_CHANGE' in effects) ? effects['_ON_CHANGE'] : null;
+      state = (type === 'Object') ?
+        objectCombinedReducer(state, action, rewpaMap) :
+        mappingCombinedReducer(state, action, rewpaMap['*']);
+      const filteredKeys = Object.keys(state).filter((key) => state[key] instanceof OnChangeResultPath);
+      return filteredKeys.length ? state[filteredKeys[0]].unshift(thisMatch) : new OnChangeResultPath(thisMatch);
     }
     // own reducer
     // console.log(arg);
@@ -39,14 +59,6 @@ export default (arg) => {
     // built-in reducer
     const stateAfterBuiltInReducer = builtinObjectReducer(state, action, type==='Map' ? rewpaMap['*'] : null);
     if(stateAfterBuiltInReducer && stateAfterBuiltInReducer !== state){ return stateAfterBuiltInReducer; }
-    // effects
-    if(action.type === '@@rewpa/GET_EFFECT_FUNC'){
-      state = (type === 'Object') ?
-      objectCombinedReducer(state, action, rewpaMap) :
-      mappingCombinedReducer(state, action, rewpaMap['*']);
-      const filteredKeys = Object.keys(state).filter((key) => _.isFunction(state[key]));
-      return filteredKeys.length ? state[filteredKeys[0]] : null;
-    }
     // combined reducer
     return (type === 'Object') ?
       objectCombinedReducer(state, action, rewpaMap) :

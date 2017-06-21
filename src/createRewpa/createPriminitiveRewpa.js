@@ -1,6 +1,8 @@
 import formattedAction from '../utils/formattedAction';
 import builtinPriminitiveReducer from '../reducer/builtinPriminitiveReducer';
 
+import OnChangeResultPath from '../utils/OnChangeResultPath';
+
 export default (arg) => {
   const defaultArg = { name: null, ownReducer: null, initialState: null, effects: null };
   Object.keys(arg).forEach(key => arg[key] === undefined && delete arg[key]); // delete undefined keys
@@ -17,10 +19,15 @@ export default (arg) => {
 
   const ret = (state = initialState, action) => {
     // effects
-    if(action.__path && !action.__path.length && action.type === '@@rewpa/GET_EFFECT_FUNC'){
-      if(effects && action.__type in effects){
+    if(action.type === '@@rewpa/GET_EFFECT_FUNC'){
+      if((action.__path && !action.__path.length) && (effects && action.__type in effects)){
         return effects[action.__type];
       }
+      else return null;
+    }
+    // on change hook
+    if(action.type === '@@rewpa/GET_ON_CHANGE_PATH'){
+      return (effects && '_ON_CHANGE' in effects) ? effects['_ON_CHANGE'] : null;
     }
     // own reducer
     if(action.__path && !action.__path.length && _.isFunction(ownReducer)){
