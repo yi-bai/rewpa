@@ -36,7 +36,7 @@ export default (arg) => {
       const thisMatch = (effects && '_ON_CHANGE' in effects) ? effects['_ON_CHANGE'] : null;
       state = listMappingReducer(state, action, elementRewpa);
       const filtered = state.filter((e) => e instanceof OnChangeResultPath);
-      return filteredKeys.length ? filtered[0].unshift(thisMatch) : new OnChangeResultPath(thisMatch);
+      return filtered.length ? filtered[0].unshift(thisMatch) : new OnChangeResultPath(thisMatch);
     }
     // own reducer
     if(action.__path && !action.__path.length && _.isFunction(ownReducer)){
