@@ -1,7 +1,8 @@
 # Rewpa
 
 Rewpa (Redux Reducer with Path) is a library works with Redux that makes composition of Recucers possible.
-Two basic APIs of Rewpa is `createRewpa` and `rewpaMiddleware`.
+
+Rewpa has two basic APIs of Rewpa is `createRewpa` and `rewpaMiddleware`.
 
 With Rewpa, these tasks could be easily achieved:
 - Declare reducer states,
