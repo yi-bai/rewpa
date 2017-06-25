@@ -60,8 +60,11 @@ Counter = createRewpa({
 });
 ```
 
-Here, name is optional, and it's only used in debugging.
-In schema, you declare the data structure as one of the:
+A rewpa is defined by:
+
+An optional name which is only used in debugging.
+
+A schema, must be one of the:
 - Object, a key-value object,
 - Array, with one element,
 - Mapping, declare as {'*': value},
@@ -90,8 +93,10 @@ Rewpa = createRewpa({
 ```
 
 The definition of schema grammar is very intuitive.
+
 The `initialState` is also optional, because rewpa would use default value of the schema as default `initialState`. Only define `initialState` when it is really needed (e.g. you want to place several counters by default).
 
+Finally, sync actions (reducer) and actions with effects (effects) are defined.
 
 ### Sync Actions (Reducer)
 
