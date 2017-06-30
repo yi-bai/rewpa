@@ -10,7 +10,6 @@ export default (arg) => {
   let { name, ownReducer, initialState, effects } = arg;
 
   const putGenerator = (state) => (...actions) => {
-    console.log(actions);
     for(const i in actions){
       const action = formattedAction(actions[i]);
       state = builtinPriminitiveReducer(state, action);
