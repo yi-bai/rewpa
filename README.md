@@ -158,9 +158,9 @@ const Date = createRewpa({
     day: 1
   },
   reducer: {
-    SET_YEAR: (state, { payload }) => put({ type: 'year/_SET', payload }),
-    SET_MONTH: (state, { payload }) => put({ type: 'month/_SET', payload }),
-    SET_DAY: (state, { payload }) => put({ type: 'day/_SET', payload })
+    SET_YEAR: (state, { payload }, put) => put({ type: 'year/_SET', payload }),
+    SET_MONTH: (state, { payload }, put) => put({ type: 'month/_SET', payload }),
+    SET_DAY: (state, { payload }, put) => put({ type: 'day/_SET', payload })
   }
 };
 ```
