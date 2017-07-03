@@ -188,7 +188,7 @@ To avoid boilerplate, Rewpa offer several standard actions for Priminitive (Stri
 
 | Rewpa Object | Type | Payload and effects |
 | ------| ------ | ------ |
-| Object & Priminitive | _SET | new value |
+| All types | _SET | new value (For mapping types there're some extended usage, see below) |
 |  | _ASSIGN | value to be assigned |
 |  | _MERGE | value to be merged |
 | List | _INSERT | If payload is left empty, a new element with initial state will be pushed to the list. If payload is an object that exactly contains `index` and `value`, a new element with the `value` will be inserted into the position of `index`. Otherwise, a new element with value of `payload` will be pushed to the list. |
