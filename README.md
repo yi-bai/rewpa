@@ -186,19 +186,19 @@ When dispatching to the root reducer, no path is prepended. Like `dispatch({ typ
 
 To avoid boilerplate, Rewpa offer several standard actions for Priminitive (String, Number, Boolean or any Json object), Object, List and Mapping rewpa. Standard actions always start with an underscore. Custom action should avoid starting with an underscore.
 
-| Rewpa Object | Type | Payload | Note |
-| ------| ------ | ------ | ------ |
-| Object & Priminitive | _SET | new value | |
-|  | _ASSIGN | value to be assigned | |
-|  | _MERGE | value to be merged | |
-| List | _INSERT | If payload is left empty, a new element with initial state will be pushed to the list. If payload is an object that exactly contains `index` and `value`, a new element with the `value` will be inserted into the position of `index`. Otherwise, a new element with value of `payload` will be pushed to the list. | |
-| | _CONCAT | Concat the payload with the current list. | |
-| | _SLICE | If payload is a number `x`, slice the state into `list.slice(x)`. If payload is an array of two numbers `[x, y]`, return `list.slice(x, y)`. | |
-| | _DELETE | Number, Array or Object. If a string is given, delete the element in that position. Several indexes can be deleted at one time by giving an array. Negative index is supported. If an object is given, all the key-value pair will be tested against all element, and the matched elements will be deleted. | |
-| | _CLEAR | - | Set the mapping to [] |
+| Rewpa Object | Type | Payload and effects |
+| ------| ------ | ------ |
+| Object & Priminitive | _SET | new value |
+|  | _ASSIGN | value to be assigned |
+|  | _MERGE | value to be merged |
+| List | _INSERT | If payload is left empty, a new element with initial state will be pushed to the list. If payload is an object that exactly contains `index` and `value`, a new element with the `value` will be inserted into the position of `index`. Otherwise, a new element with value of `payload` will be pushed to the list. |
+| | _CONCAT | Concat the payload with the current list. |
+| | _SLICE | If payload is a number `x`, slice the state into `list.slice(x)`. If payload is an array of two numbers `[x, y]`, return `list.slice(x, y)`. |
+| | _DELETE | Number, Array or Object. If a string is given, delete the element in that position. Several indexes can be deleted at one time by giving an array. Negative index is supported. If an object is given, all the key-value pair will be tested against all element, and the matched elements will be deleted. |
+| | _CLEAR | Set the mapping to [] |
 | Mapping | _SET | Key and optional value. If value is absent the new state of key will be the initial state of the value element |
-| | _DELETE | String, Array or Object. If a string is given, iterating over the mapping and delete element with the key. Several keys can be deleted at one time by giving an array. If an object is given, all the key-value pair will be tested against all element, and the matched elements will be deleted. | |
-| | _CLEAR | - | Set the mapping to {} |
+| | _DELETE | String, Array or Object. If a string is given, iterating over the mapping and delete element with the key. Several keys can be deleted at one time by giving an array. If an object is given, all the key-value pair will be tested against all element, and the matched elements will be deleted. |
+| | _CLEAR | Set the mapping to {} |
 
 ## Async Actions (Effects)
 
