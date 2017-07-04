@@ -202,11 +202,46 @@ To avoid boilerplate, Rewpa offer several standard actions for Priminitive (Stri
 
 ## Async Actions (Effects)
 
+According to the basic restriction of redux, to keep reducer predicable, reducer should be a stateless function without effects (e.g. calling API) or using stateful or random functions. Actions that call API or do other asynchronized tasks should be put outside of reducer. To accomplish that, lots of middlewares are invented, Redux-Thunk, Redux-Saga and Redux-Observable are some of the most popular ones.
+
+Rewpa could work properly with Redux-Thunk and Redux-Saga, but you should always be aware of the existance of path, because Redux-Thunk and Redux-Saga works in the global state of reducer. Rewpa provides `effects` key as its effects solution.
+
+Like `reducer`, `effects` is written as an object, and each object is a funciton with signature of `(action, dispatchLocal, getStateLocal, dispatchRoot, getStateRoot)`. The following effect increase counter with a random value.
+
+```
+const Counter = createRewpa({
+  schema: 0,
+  reducer: {
+    INCREMENT: (state, action) => state+1;
+    DECREMENT: (state, action) => state-1;
+  },
+  effects: {
+    INCREMENT_RANDOM: ({ payload }, dispatch, getState) => {
+      dispatch({ type: 'INCREMENT', payload: Math.random() });
+    }
+  }
+});
+```
+
+Here, in the `INCREMENT_RANDOM`, it dispatch `INCREMENT` action inside. Please note that the dispatch here is not dispatching to the global state, and to keep the low coupling among reducers, use of `dispatchRoot` should be limited. Dispatching effect is exactly the same as dispatching an action:
+
+```
+dispatch({ type: 'singleCounter/INCREMENT_RANDOM' });
+dispatch({ type: 'counterListA[1]/INCREMENT_RANDOM' });
+dispatch({ type: 'counterMapping[36]/INCREMENT_RANDOM' });
+```
+
+This makes our components with consistent behavior: almost all the things component does is receiving states and dispatching actions or effects.
+
+The return value of your effects functions will be the return value of `dispatch`, which enables more convenient asynchronous control flow (like async/await a dispatch with return value of Promise to be finished).
+
 ### Listen to your local changes (_ON_CHANGE event)
 
 ## Organize your component
 
 ### Passing only path among your components
+
+### Using rewpa with React-Redux
 
 ### Entity, Data and UI
 
