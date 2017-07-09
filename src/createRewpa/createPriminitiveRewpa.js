@@ -1,7 +1,28 @@
 import formattedAction from '../utils/formattedAction';
 import builtinPriminitiveReducer from '../reducer/builtinPriminitiveReducer';
 
-import OnChangeResultPath from '../utils/OnChangeResultPath';
+import { REWPA_ACTIONS, REWPA_ACTION_VALUES } from '../constants';
+import RewpaResultList from '../utils/RewpaResultList';
+
+import _ from 'lodash';
+
+const rewpaActions = (state, action, arg) => {
+  if(action.type === REWPA_ACTIONS.GET_META) return rewpaActionGetMeta(state, action, arg);
+  if(action.type === REWPA_ACTIONS.GET_META_ITERATIVE) return rewpaActionGetMetaIterative(state, action, arg);
+};
+
+const rewpaActionGetMeta = (state, action, arg) => {
+  if((action.__path && !action.__path.length)){
+    const thisMeta = _.get(arg, action.payload.argPath);
+    return  thisMeta ? new RewpaResultList(thisMeta) : null;
+  }
+  return null;
+};
+
+const rewpaActionGetMetaIterative = (state, action, arg) => {
+  const thisMeta = _.get(arg, action.payload.argPath) || null;
+  return new RewpaResultList(thisMeta);
+};
 
 export default (arg) => {
   const defaultArg = { name: null, ownReducer: null, initialState: null, effects: null };
@@ -18,17 +39,10 @@ export default (arg) => {
   };
 
   const ret = (state = initialState, action) => {
-    // effects
-    if(action.type === '@@rewpa/GET_EFFECT_FUNC'){
-      if((action.__path && !action.__path.length) && (effects && action.__type in effects)){
-        return effects[action.__type];
-      }
-      else return null;
+    if(REWPA_ACTION_VALUES.includes(action.type)){
+      return rewpaActions(state, action, arg);
     }
-    // on change hook
-    if(action.type === '@@rewpa/GET_ON_CHANGE_PATH'){
-      return (effects && '_ON_CHANGE' in effects) ? effects['_ON_CHANGE'] : null;
-    }
+
     // own reducer
     if(action.__path && !action.__path.length && _.isFunction(ownReducer)){
       const stateAfterOwnReducer = ownReducer(state, action, putGenerator(state));

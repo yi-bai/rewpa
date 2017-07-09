@@ -2,7 +2,36 @@ import formattedAction from '../utils/formattedAction';
 import builtinListReducer from '../reducer/builtinListReducer';
 import listMappingReducer from '../reducer/listMappingReducer';
 
-import OnChangeResultPath from '../utils/OnChangeResultPath';
+import { REWPA_ACTIONS, REWPA_ACTION_VALUES } from '../constants';
+import RewpaResultList from '../utils/RewpaResultList';
+
+import _ from 'lodash';
+
+const rewpaActions = (state, action, arg, elementRewpa) => {
+  if(action.type === REWPA_ACTIONS.GET_META) return rewpaActionGetMeta(state, action, arg, elementRewpa);
+  if(action.type === REWPA_ACTIONS.GET_META_ITERATIVE) return rewpaActionGetMetaIterative(state, action, arg, elementRewpa);
+};
+
+const rewpaActionGetMeta = (state, action, arg, elementRewpa) => {
+  if((action.__path && !action.__path.length)){
+    const thisMeta = _.get(arg, action.payload.argPath);
+    return  thisMeta ? new RewpaResultList(thisMeta) : null;
+  }
+  state = listMappingReducer(state, action, elementRewpa);
+  const filtered = state.filter((e) => e instanceof RewpaResultList);
+  return filtered.length ? filtered[0] : null;
+};
+
+const rewpaActionGetMetaIterative = (state, action, arg, elementRewpa) => {
+  const thisMeta = _.get(arg, action.payload.argPath) || null;
+  if((action.__path && !action.__path.length)){
+    return new RewpaResultList(thisMeta);
+  }else{
+    state = listMappingReducer(state, action, elementRewpa);
+    const filtered = state.filter((e) => e instanceof RewpaResultList);
+    return filtered[0].unshift(thisMeta);
+  }
+};
 
 export default (arg) => {
   const defaultArg = { name: null, elementRewpa: null, ownReducer: null, initialState: [], effects: null };
@@ -22,22 +51,10 @@ export default (arg) => {
   };
 
   const ret = (state = initialState, action) => {
-    // effects
-    if(action.type === '@@rewpa/GET_EFFECT_FUNC'){
-      if((action.__path && !action.__path.length) && (effects && action.__type in effects)){
-        return effects[action.__type];
-      }
-      state = listMappingReducer(state, action, elementRewpa);
-      const filtered = state.filter((e) => _.isFunction(e));
-      return filtered.length ? filtered[0] : null;
+    if(REWPA_ACTION_VALUES.includes(action.type)){
+      return rewpaActions(state, action, arg, elementRewpa);
     }
-    // on change hook
-    if(action.type === '@@rewpa/GET_ON_CHANGE_PATH'){
-      const thisMatch = (effects && '_ON_CHANGE' in effects) ? effects['_ON_CHANGE'] : null;
-      state = listMappingReducer(state, action, elementRewpa);
-      const filtered = state.filter((e) => e instanceof OnChangeResultPath);
-      return filtered.length ? filtered[0].unshift(thisMatch) : new OnChangeResultPath(thisMatch);
-    }
+
     // own reducer
     if(action.__path && !action.__path.length && _.isFunction(ownReducer)){
       const stateAfterOwnReducer = ownReducer(state, action, putGenerator(state));
@@ -50,7 +67,6 @@ export default (arg) => {
     return listMappingReducer(state, action, elementRewpa);
   };
   ret.rewpaname = name;
-  ret.effects = effects;
   ret.type = 'List';
   return ret;
 };

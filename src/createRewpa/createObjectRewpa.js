@@ -3,7 +3,40 @@ import builtinObjectReducer from '../reducer/builtinObjectReducer';
 import objectCombinedReducer from '../reducer/objectCombinedReducer';
 import mappingCombinedReducer from '../reducer/mappingCombinedReducer';
 
-import OnChangeResultPath from '../utils/OnChangeResultPath';
+import { REWPA_ACTIONS, REWPA_ACTION_VALUES } from '../constants';
+import RewpaResultList from '../utils/RewpaResultList';
+
+import _ from 'lodash';
+
+const rewpaActions = (state, action, arg, rewpaMap) => {
+  if(action.type === REWPA_ACTIONS.GET_META) return rewpaActionGetMeta(state, action, arg, rewpaMap);
+  if(action.type === REWPA_ACTIONS.GET_META_ITERATIVE) return rewpaActionGetMetaIterative(state, action, arg, rewpaMap);
+};
+
+const rewpaActionGetMeta = (state, action, arg, rewpaMap) => {
+  if((action.__path && !action.__path.length)){
+    const thisMeta = _.get(arg, action.payload.argPath);
+    return  thisMeta ? new RewpaResultList(thisMeta) : null;
+  }
+  state = ('*' in rewpaMap) ?
+    mappingCombinedReducer(state, action, rewpaMap['*']) :
+    objectCombinedReducer(state, action, rewpaMap);
+  const filteredKeys = Object.keys(state).filter((key) => state[key] instanceof RewpaResultList);
+  return filteredKeys.length ? state[filteredKeys[0]] : null;
+};
+
+const rewpaActionGetMetaIterative = (state, action, arg, rewpaMap) => {
+  const thisMeta = _.get(arg, action.payload.argPath) || null;
+  if((action.__path && !action.__path.length)){
+    return new RewpaResultList(thisMeta);
+  }else{
+    state = ('*' in rewpaMap) ?
+      mappingCombinedReducer(state, action, rewpaMap['*']) :
+      objectCombinedReducer(state, action, rewpaMap);
+    const filteredKeys = Object.keys(state).filter((key) => state[key] instanceof RewpaResultList);
+    return state[filteredKeys[0]].unshift(thisMeta);
+  }
+};
 
 const pathString = (arrayPath) => {
   return _.isString(arrayPath) ? arrayPath : (arrayPath ? arrayPath.join('.') : '');
@@ -13,7 +46,6 @@ export default (arg) => {
   const defaultArg = { name: null, schema: null, rewpaMap: null, ownReducer: null, initialState: {}, effects: null };
   Object.keys(arg).forEach(key => arg[key] === undefined && delete arg[key]); // delete undefined keys
   arg = _.assign(defaultArg, arg);
-  // console.log(arg);
   let { name, schema, rewpaMap, ownReducer, initialState, effects } = arg;
 
   const rewpaKeys = Object.keys(rewpaMap);
@@ -30,26 +62,10 @@ export default (arg) => {
   };
 
   const ret = (state = initialState, action) => {
-    // effects
-    if(action.type === '@@rewpa/GET_EFFECT_FUNC'){
-      if((action.__path && !action.__path.length) && (effects && action.__type in effects)){
-        return effects[action.__type];
-      }
-      state = (type === 'Object') ?
-      objectCombinedReducer(state, action, rewpaMap) :
-      mappingCombinedReducer(state, action, rewpaMap['*']);
-      const filteredKeys = Object.keys(state).filter((key) => _.isFunction(state[key]));
-      return filteredKeys.length ? state[filteredKeys[0]] : null;
+    if(REWPA_ACTION_VALUES.includes(action.type)){
+      return rewpaActions(state, action, arg, rewpaMap);
     }
-    // on change hook
-    if(action.type === '@@rewpa/GET_ON_CHANGE_PATH'){
-      const thisMatch = (effects && '_ON_CHANGE' in effects) ? effects['_ON_CHANGE'] : null;
-      state = (type === 'Object') ?
-        objectCombinedReducer(state, action, rewpaMap) :
-        mappingCombinedReducer(state, action, rewpaMap['*']);
-      const filteredKeys = Object.keys(state).filter((key) => state[key] instanceof OnChangeResultPath);
-      return filteredKeys.length ? state[filteredKeys[0]].unshift(thisMatch) : new OnChangeResultPath(thisMatch);
-    }
+
     // own reducer
     // console.log(arg);
     if(action.__path && !action.__path.length && _.isFunction(ownReducer)){
@@ -65,7 +81,6 @@ export default (arg) => {
       mappingCombinedReducer(state, action, rewpaMap['*']);
   };
   ret.rewpaname = name;
-  ret.effects = effects;
   ret.type = type;
   return ret;
 };

@@ -11,3 +11,10 @@ export const BUILTIN_ACTIONS = {
 };
 
 export const BUILTIN_ACTION_VALUES = Object.values(BUILTIN_ACTIONS);
+
+export const REWPA_ACTIONS = {
+  GET_META: '@@rewpa/GET_META',
+  GET_META_ITERATIVE: '@@rewpa/GET_META_ITERATIVE'
+};
+
+export const REWPA_ACTION_VALUES = Object.values(REWPA_ACTIONS);

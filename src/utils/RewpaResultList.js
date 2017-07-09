@@ -1,4 +1,4 @@
-export default class OnChangeResultPath {
+export default class RewpaResultList {
   constructor(element){
     this.list = [element];
   }

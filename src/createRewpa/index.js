@@ -6,10 +6,7 @@ import createPriminitiveRewpa from './createPriminitiveRewpa';
 const generateReducerFromObject = (ownReducerObj) => {
   return (state, action, put) => {
     for(const key in ownReducerObj){
-      // console.log('generateReducerFromObject', key, action.__type);
       if(key === action.__type){
-        // console.log('matches', ownReducerObj[key], state, action, put);
-        // console.log(ownReducerObj[key](state, action, put));
         return ownReducerObj[key](state, action, put);
       }
     }

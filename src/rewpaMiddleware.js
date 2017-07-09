@@ -2,6 +2,8 @@ import formattedAction from './utils/formattedAction';
 import getPath from './utils/getPath';
 import _ from 'lodash';
 
+import RewpaResultList from './utils/RewpaResultList';
+
 export default (rewpa) => ({ dispatch, getState }) => next => action => {
   action = formattedAction(action);
   // console.log(action);
@@ -10,9 +12,11 @@ export default (rewpa) => ({ dispatch, getState }) => next => action => {
   let result = next(action);
   let nextState = getState();
 
+  // effects
   if(prevState == nextState){
-    const effectFunc = rewpa(nextState, _.assign({}, action, { type: '@@rewpa/GET_EFFECT_FUNC' }));
-    if(_.isFunction(effectFunc)){
+    let effectFunc = rewpa(nextState, { type: '@@rewpa/GET_META', __path: action.__path, payload: { argPath: ['effects', action.__type] }});
+    if(effectFunc instanceof RewpaResultList){
+      effectFunc = effectFunc.list[0];
       return effectFunc(
         action,
         function(_action){ return dispatch(_.assign({}, _action, { path: action.path })); },
@@ -22,21 +26,30 @@ export default (rewpa) => ({ dispatch, getState }) => next => action => {
       console.log(`Warning: no state changed after action ${action.type}`);
       return null;
     }
-  }else if('path' in action){
-    const onChangePaths = rewpa(nextState, _.assign({}, action, { type: '@@rewpa/GET_ON_CHANGE_PATH', __type: 'GET_ON_CHANGE_PATH' }));
-    for(const index in onChangePaths.list){
-      if(onChangePaths.list[index]){
+  }
+
+  // after action hook
+  if('path' in action){
+    const onChangeFunctions = rewpa(nextState,
+      { type: '@@rewpa/GET_META_ITERATIVE',
+        __path: action.__path,
+        payload: { argPath: ['effects', '_AFTER_ACTION']
+      }});
+    for(const index in onChangeFunctions.list){
+      if(onChangeFunctions.list[index]){
         const thisActionPath = action.__path.slice(0, index).join('.');
-        onChangePaths.list[index](
+        onChangeFunctions.list[index](
           formattedAction(
             {
-              type: `${thisActionPath}/_ON_CHANGE`,
-              payload: { prevState: getPath(prevState, thisActionPath), prevRootState: prevState }}),
+              type: `${thisActionPath}/_AFTER_ACTION`,
+              payload: { prevState: getPath(prevState, thisActionPath), prevRootState: prevState, action }}),
             function(_action){ return dispatch(_.assign({}, _action, { path: thisActionPath })); },
             function(){ return getPath(getState(), thisActionPath) },
             dispatch, getState);
       }
     }
     return result;
-  }else return result;
-};
+  }
+
+  return result;
+}

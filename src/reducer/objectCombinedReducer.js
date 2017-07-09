@@ -1,5 +1,4 @@
 export default (state, action, reducersMap) => {
-  // console.log(state, action, reducersMap);
   // is apply
   const isApply = {};
   const keys = Object.keys(reducersMap);
