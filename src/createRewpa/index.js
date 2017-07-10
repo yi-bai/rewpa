@@ -30,7 +30,7 @@ const createRewpa = (arg) => {
     return schema;
   }else if(_.isArray(schema)){ // schema is an array
     const elementRewpa = createRewpa({ schema: schema[0] });
-    return createListRewpa({ name, elementRewpa, ownReducer, initialState, effects });
+    return createListRewpa(_.assign({}, arg, { elementRewpa }));
   }else if(_.isObject(schema)){ // schema is an object
     const rewpaMap = {};
     const keys = Object.keys(schema);
@@ -39,9 +39,9 @@ const createRewpa = (arg) => {
       rewpaMap[key] = createRewpa({ schema: schema[key] });
     }
     // console.log(rewpaMap);
-    return createObjectRewpa({ name, rewpaMap, ownReducer, initialState, schema, effects });
+    return createObjectRewpa(_.assign({}, arg, { rewpaMap }));
   }else{ // schema is other objects
-    return createPriminitiveRewpa({ name, initialState: initialState || schema, ownReducer, effects });
+    return createPriminitiveRewpa(_.assign({}, arg, { initialState: initialState || schema }));
   }
 };
 
