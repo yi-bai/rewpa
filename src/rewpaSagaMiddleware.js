@@ -25,12 +25,7 @@ sagaMiddleware.runRewpa = function(rewpa) {
           saga = saga.list[0];
           channelMapping[action.type] = yield sagaEffects.call(channel);
           // 模仿takeEvery, 为每一个action.type做一个Channel
-          yield sagaEffects.fork(function *(){
-            while(true){
-              const _action = yield sagaEffects.take(channelMapping[action.type]);
-              yield sagaEffects.fork(saga, _action);
-            }
-          });
+          yield sagaEffects.takeEvery(channelMapping[action.type], saga);
         }
       }
       if(channelMapping[action.type]){
