@@ -94,6 +94,7 @@ export default sagaMiddleware;
 sagaMiddleware.runRewpa = function(rewpa) {
   sagaMiddleware.run(function *(){
     yield sagaEffects.takeEvery('*', function *(action){
+      // the building process should be bottom-up, but only put to the leaf's channel
       if(!(action.path in channelMapping)){
         const stateNow = yield sagaEffects.select();
         let saga = rewpa(stateNow, {
