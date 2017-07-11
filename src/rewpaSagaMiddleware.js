@@ -24,11 +24,15 @@ const actionTypeDeletePath = (type, path) => {
   return (_.startsWith(type, path)) ? type.substr(path.length) : type; 
 };
 
+const actionDeletePath = (action, path) => {
+  return _.assign({}, action, { type: actionTypeDeletePath(action.type, path) });
+};
+
 const patternWithPath = (pattern, path) => {
   if(!pattern) pattern = '*';
   if(pattern === '*') return (action) => _.startsWith(action.type, path);
   if(_.isString(pattern)) return actionTypePrependPath(pattern, path);
-  if(_.isFunction(pattern)) return (action) => pattern(_.assign({}, action, { type: actionTypeDeletePath(action.type, path) }));
+  if(_.isFunction(pattern)) return (action) => pattern(actionDeletePath(action, path));
   if(_.isArray(pattern)) return pattern.map((patternElement) => patternWithPath(patternElement, path));
 };
 
@@ -64,9 +68,9 @@ const createSagaFromObject = (sagaObject, sagaPathEffects) => {
 // all saga effects are in global scope, so we have to append/delete path for them
 const createPathEffects = (path) => {
   const take = (pattern) => sagaEffects.take(patternWithPath(pattern, path));
-  const takeEvery = (pattern, saga, ...args) => sagaEffects.takeEvery(patternWithPath(pattern, path), saga, ...args);
-  const takeLatest = (pattern, saga, ...args) => sagaEffects.takeLatest(patternWithPath(pattern, path), saga, ...args);
-  const throttle = (ms, pattern, saga, ...args) => sagaEffects.throttle(ms, patternWithPath(pattern, path), saga, ...args);
+  const takeEvery = (pattern, saga, ...args) => sagaEffects.takeEvery(patternWithPath(pattern, path), (action) => saga(actionDeletePath(action, path)), ...args);
+  const takeLatest = (pattern, saga, ...args) => sagaEffects.takeLatest(patternWithPath(pattern, path), (action) => saga(actionDeletePath(action, path)), ...args);
+  const throttle = (ms, pattern, saga, ...args) => sagaEffects.throttle(ms, patternWithPath(pattern, path), (action) => saga(actionDeletePath(action, path)), ...args);
   const put = (action) => sagaEffects.put(formattedAction(actionWithPath(action, path)));
   const select = function *(selector, ...args) {
     if(selector){
@@ -82,7 +86,7 @@ const createPathEffects = (path) => {
 
 
 const channelMapping = {};
-const effectsMapping = {};
+const sagaEffectsMapping = {};
 const sagaMiddleware = createSagaMiddleware();
 
 export default sagaMiddleware;
@@ -102,18 +106,22 @@ sagaMiddleware.runRewpa = function(rewpa) {
 
           // create channel
           channelMapping[action.path] = yield sagaEffects.call(channel);
-          effectsMapping[action.path] = createPathEffects(action.path);
+          sagaEffectsMapping[action.path] = createPathEffects(action.path);
 
           saga = saga.list[0];
-          saga = _.isFunction(saga) ? saga : createSagaFromObject(saga, effectsMapping[action.path]);
+          saga = _.isFunction(saga) ? saga : createSagaFromObject(saga, sagaEffectsMapping[action.path]);
 
           // takeEvery, but saga effects as the last parameter;
           yield sagaEffects.fork(function *() {
             while(true){
               const _action = yield sagaEffects.take(channelMapping[action.path]);
-              yield sagaEffects.fork(saga, _action, effectsMapping[action.path]);
+              yield sagaEffects.fork(saga, _action, sagaEffectsMapping[action.path]);
             }
           });
+        }else{
+          // prevent further detecting
+          channelMapping[action.path] = null;
+          sagaEffectsMapping[action.path] = null;
         }
       }
 
