@@ -10,7 +10,7 @@ const getStateMapping = {};
 
 export default (rewpa) => ({ dispatch, getState }) => next => action => {
   action = formattedAction(action);
-  // console.log(action);
+  console.log(action);
 
   let prevState = getState();
   let result = next(action);
