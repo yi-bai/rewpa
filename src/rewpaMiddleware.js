@@ -53,7 +53,6 @@ export default (rewpa) => {
   let sagaMiddleware = null;
   let observableMiddleware = null;
   let epic$ = new Subject();
-  console.log(epic$);
   let rootEpic = (action$, store) => epic$.mergeMap(epic => epic(action$, store));
 
   //utils
