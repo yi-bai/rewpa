@@ -6,6 +6,8 @@ export default (state, action, elementRewpa) => {
   }
   if(!action.__path.length && BUILTIN_ACTION_VALUES.includes(action.__type)){
     switch(action.__type){
+      case BUILTIN_ACTIONS.SET:
+        return action.payload;
       case BUILTIN_ACTIONS.INSERT:
         state = state.map((e) => e);
         if(!action.payload){
