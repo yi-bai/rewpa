@@ -35,9 +35,8 @@ export default (state, action, elementRewpa) => {
         } else {
           delete_keys = _.isArray(action.payload) ? action.payload : [action.payload];
         }
-        // console.log(state);
-        _.forEach(delete_keys, (key) => state.splice(key, 1));
-        return state.map((e) => e);
+        delete_keys = delete_keys.map((i) => parseInt(i));
+        return delete_keys.length ? state.filter((e, i) => !delete_keys.includes(i)) : state;
       case BUILTIN_ACTIONS.CLEAR:
         return [];
       default:

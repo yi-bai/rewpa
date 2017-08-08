@@ -136,7 +136,7 @@ export default (rewpa) => {
           if(element.type != 'onChange' || isChanged){
             const localAction = actionDeletePath(action, path);
             if(regExp.test(localAction.type)){
-              return element.effect(localAction, pathStoreWithPathMap[path]['dispatch'], pathStoreWithPathMap['getState'],
+              return element.effect(localAction, pathStoreWithPathMap[path]['dispatch'], pathStoreWithPathMap[path]['getState'],
                 dispatch, getState);
             }
           }

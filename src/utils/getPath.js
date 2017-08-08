@@ -17,5 +17,5 @@ export default (state, path) => {
   }
   if(!path) return state;
 
-  return _.get(state, path);
+  return { data: _.get(state, path) };
 };
